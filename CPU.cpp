@@ -183,55 +183,51 @@ void Cpu::execute(int cycles, Memory & memory) {
 
 void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
-    Byte oldA = A;
-    Byte memoryValue = 0;
-    Byte finalValue = 0;
-    Byte ZPAddress = 0;
-    Word address = 0;
+    Byte operand = 0;
 
     switch (mode) {
-        case IM: {
-            memoryValue = fetchByte(cycles, memory);
-            finalValue = memoryValue + C + A;
-            setReg(a, finalValue);
+        case IM:
+            operand = fetchByte(cycles, memory);
             break;
-        }
         case ZP: {
-            ZPAddress = fetchByte(cycles, memory);
-            finalValue = readByte(cycles, memory, ZPAddress) + C + A;
-            setReg(a, finalValue);
+            Byte addr = fetchByte(cycles, memory);
+            operand = readByte(cycles, memory, addr);
             break;
         }
         case ZPX: {
-            ZPAddress = fetchByte(cycles, memory) + x; cycles--;
-            finalValue = readByte(cycles, memory, ZPAddress) + C + A;
-            setReg(a, finalValue);
+            Byte addr = fetchByte(cycles, memory);
+            addr += X; cycles--;
+            operand = readByte(cycles, memory, addr);
             break;
         }
         case ABS: {
-            finalValue = readByte(cycles, memory, getAbsoluteAddr(cycles, memory));
-            setReg(x, finalValue);
+            Word addr = getAbsoluteAddr(cycles, memory);
+            operand = readByte(cycles, memory, addr);
             break;
         }
         case ABX: {
-            address = getAbsoluteAddr(cycles, memory) + X;
-            finalValue = readByte(cycles, memory, address);
-            setReg(x, finalValue);
+            Word addr = getAbsoluteAddr(cycles, memory) + X;
+            operand = readByte(cycles, memory, addr);
             break;
         }
         case ABY: {
-            address = getAbsoluteAddr(cycles, memory) + Y;
-            finalValue = readByte(cycles, memory, address);
-            setReg(y, finalValue);
+            Word addr = getAbsoluteAddr(cycles, memory) + Y;
+            operand = readByte(cycles, memory, addr);
             break;
         }
-        default: {
+        default:
             std::cout << "Illegal ADC\n";
-        }
+            return;
     }
-    C = ((fetchByte(cycles, memory) + C + oldA) > 0xFF);
-    Z = (A == 0);
-    N = (A > 0x10000000);
+
+    uint16_t sum = A + operand + C;
+    C = (sum > 0xFF);
+    V = (~(A ^ operand) & (A ^ sum) & 0x80) != 0;    // Jeśli operand i A miały ten sam znak, ale wynik ma inny znak to ustaw overflow
+
+    setReg(a, static_cast<Byte>(sum & 0xFF));
+
+    Z = A == 0;
+    N = (A & 0x80) != 0;
 }
 
 void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
@@ -280,8 +276,9 @@ void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
             std::cout << "Illegal AND\n";
         }
     }
-    Z = (A == 0);
-    N = (A > 0x10000000);
+
+    Z = A == 0;
+    N = (A & 0x80) != 0;
 }
 
 
@@ -324,8 +321,9 @@ void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
             break;
         }
     }
-    Z = (A == 0);
-    N = (A > 0x10000000);
+
+    Z = A == 0;
+    N = (A & 0x80) != 0;
 }
 
 void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
@@ -367,8 +365,9 @@ void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
             break;
         }
     }
-    Z = (A == 0);
-    N = (A > 0x10000000);
+
+    Z = A == 0;
+    N = (A & 0x80) != 0;
 }
 
 void Cpu::LDA(instructionModes mode, Memory &memory, int &cycles) {
@@ -393,8 +392,9 @@ void Cpu::LDA(instructionModes mode, Memory &memory, int &cycles) {
             break;
         }
     }
-    Z = (A == 0);
-    N = (A > 0x10000000);
+
+    Z = A == 0;
+    N = (A & 0x80) != 0;
 }
 
 Cpu::Cpu(Memory &mem) {
