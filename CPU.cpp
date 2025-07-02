@@ -61,15 +61,13 @@ Cpu::Byte Cpu::returnReg(registers reg) {
     switch (reg) {
         case a:
             return A;
-            break;
         case x:
             return X;
-            break;
         case y:
             return Y;
-            break;
         default:
             std::cout << "Unknown register: " << reg << std::endl;
+            return 0x00;
     }
 }
 
@@ -77,28 +75,21 @@ Cpu::Byte Cpu::returnFlag(flags flag) {
     switch (flag) {
         case c:
             return C;
-            break;
         case z:
             return Z;
-            break;
         case i:
             return I;
-            break;
         case d:
             return D;
-            break;
         case b:
             return B;
-            break;
         case v:
             return V;
-            break;
         case n:
             return N;
-            break;
         default:
-            return 0x00;
             std::cout << "Unknown register: " << flag << std::endl;
+            return 0x00;
     }
 }
 
@@ -132,10 +123,10 @@ void Cpu::execute(int cycles, Memory & memory) {
             case 0x39: //AND Absolute,Y
                 AND(ABY, memory, cycles);
                 break;
-            case 0x21: //AND Indirect,X
+            case 0x21: //AND (Indirect,X)
                 AND(INX, memory, cycles);
                 break;
-            case 0x31: //AND Indirect,Y
+            case 0x31: //AND (Indirect),Y
                 AND(INY, memory, cycles);
                 break;
             case 0xA9: //LDA Immediate
@@ -159,6 +150,9 @@ void Cpu::execute(int cycles, Memory & memory) {
             case 0xAE: //LDX Absolute
                 LDX(ABS, memory, cycles);
                 break;
+            case 0xBE: //LDX Absolute,Y
+                LDX(ABY, memory, cycles);
+                break;
             case 0xA0: //LDY Immediate
                 LDY(IM, memory, cycles);
                 break;
@@ -167,6 +161,12 @@ void Cpu::execute(int cycles, Memory & memory) {
                 break;
             case 0xB4: //LDY Zero Page,X
                 LDY(ZPX, memory, cycles);
+                break;
+            case 0xAC: //LDY Absolute
+                LDY(ABS, memory, cycles);
+                break;
+            case 0xBC: //LDY Absolute,X
+                LDY(ABX, memory, cycles);
                 break;
             case 0x4A: //Logical Shift Right Accumulator
                 //TODO
@@ -184,9 +184,10 @@ void Cpu::execute(int cycles, Memory & memory) {
 void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
     Byte oldA = A;
-    Byte memoryValue;
-    Byte finalValue;
-    Byte ZPAddress;
+    Byte memoryValue = 0;
+    Byte finalValue = 0;
+    Byte ZPAddress = 0;
+    Word address = 0;
 
     switch (mode) {
         case IM: {
@@ -212,6 +213,18 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
             setReg(x, finalValue);
             break;
         }
+        case ABX: {
+            address = getAbsoluteAddr(cycles, memory) + X;
+            finalValue = readByte(cycles, memory, address);
+            setReg(x, finalValue);
+            break;
+        }
+        case ABY: {
+            address = getAbsoluteAddr(cycles, memory) + Y;
+            finalValue = readByte(cycles, memory, address);
+            setReg(y, finalValue);
+            break;
+        }
         default: {
             std::cout << "Illegal ADC\n";
         }
@@ -223,24 +236,45 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
 void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
 
-    Byte memoryValue = fetchByte(cycles, memory);
-    Byte finalValue;
+    Byte memoryValue = 0;
+    Byte finalValue = 0;
+    Word address = 0;
 
     switch (mode) {
         case IM: {
-            finalValue = memoryValue & A;
+            finalValue = fetchByte(cycles, memory) & A;
             setReg(a, finalValue);
             break;
         }
         case ZP: {
-            finalValue = readByte(cycles, memory, memoryValue) & A;
+            finalValue = readByte(cycles, memory, fetchByte(cycles, memory)) & A;
             setReg(a, finalValue);
             break;
         }
         case ZPX: {
-            finalValue = readByte(cycles, memory, (Byte) (memoryValue + X)) & A;
+            memoryValue = fetchByte(cycles, memory);
+            finalValue = readByte(cycles, memory, static_cast<Byte>(memoryValue + X)) & A;
             setReg(a, finalValue);
             cycles--;
+            break;
+        }
+        case ABS: {
+            address = getAbsoluteAddr(cycles, memory);
+            finalValue = readByte(cycles, memory, address) & A;
+            setReg(a, finalValue);
+            break;
+        }
+        case ABX: {
+            address = getAbsoluteAddr(cycles, memory) + X;
+            finalValue = readByte(cycles, memory, address) & A;
+            setReg(a, finalValue);
+            break;
+        }
+        case ABY: {
+            address = getAbsoluteAddr(cycles, memory) + Y;
+            finalValue = readByte(cycles, memory, address) & A;
+            setReg(a, finalValue);
+            break;
         }
             default: {
             std::cout << "Illegal AND\n";
@@ -259,8 +293,7 @@ void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
 
     switch (mode) {
         case IM: {
-            memoryValue = fetchByte(cycles, memory);
-            setReg(x, memoryValue);
+            setReg(x, fetchByte(cycles, memory));
             break;
         }
         case ZP: {
@@ -280,6 +313,12 @@ void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
             setReg(x, finalValue);
             break;
         }
+        case ABY: {
+            address = getAbsoluteAddr(cycles, memory) + Y;
+            finalValue = readByte(cycles, memory, address);
+            setReg(x, finalValue);
+            break;
+        }
         default: {
             std::cout << "Illegal LDX\n";
             break;
@@ -290,20 +329,37 @@ void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
 }
 
 void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
+
+    Byte memoryValue = 0;
+    Byte finalValue = 0;
+    Word address = 0;
+
     switch (mode) {
         case IM: {
             setReg(y, fetchByte(cycles, memory));
             break;
         }
         case ZP: {
-            Byte ZPAddress = fetchByte(cycles, memory);
-            setReg(y, readByte(cycles,memory, ZPAddress));
+            memoryValue = fetchByte(cycles, memory);
+            setReg(y, readByte(cycles, memory, memoryValue));
             break;
         }
         case ZPX: {
-            Byte ZPYAddress = fetchByte(cycles, memory);
-            Byte ZPYDest = ZPYAddress + x; cycles--;
-            setReg(y, readByte(cycles,memory, ZPYDest));
+            memoryValue = fetchByte(cycles, memory);
+            finalValue = memoryValue + x; cycles--;
+            setReg(y, readByte(cycles, memory, finalValue));
+            break;
+        }
+        case ABS: {
+            address = getAbsoluteAddr(cycles, memory);
+            finalValue = readByte(cycles, memory, address);
+            setReg(y, finalValue);
+            break;
+        }
+        case ABX: {
+            address = getAbsoluteAddr(cycles, memory) + X;
+            finalValue = readByte(cycles, memory, address);
+            setReg(y, finalValue);
             break;
         }
         default: {
