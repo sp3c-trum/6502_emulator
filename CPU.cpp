@@ -13,7 +13,7 @@ void Cpu::attachEmulator(Emulator* emu) {
 
 void Cpu::reset(Memory & memory) {
     PC = memory[0xFFFC] + (memory[0xFFFD] << 8);
-    SP = 0x0100;
+    SP = 0x01FF;
     totalCycles = 0;
     A = X = Y = C = Z = I = D = B = V = 0;
 }
@@ -71,11 +71,11 @@ Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes
     }
 }
 
-Cpu::Byte Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mode) {
+Cpu::Word Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mode) {
 
     Word baseAddr = fetchWord(cycles,memory);
     Word addr = 0;
-    Byte value = 0;
+    Word value = 0;
 
     switch (mode) {
         case ABS: {
@@ -251,11 +251,39 @@ void Cpu::execute(int cycles, Memory & memory) {
             case 0xBC: //LDY Absolute,X
                 LDY(ABX, memory, cycles);
                 break;
+            case 0x86: //STX Zero Page
+                STX(ZP, memory, cycles);
+                break;
+            case 0x96: //STX Zero Page,Y
+                STX(ZPY, memory, cycles);
+                break;
+            case 0x8E:
+                STX(ABS, memory, cycles);
             case 0x4A: //Logical Shift Right Accumulator
                 //TODO
                 break;
+            case 0x4C:
+                JMP(ABS, memory, cycles);
+                break;
             case 0xEA: //NOP
                 break;
+            case 0x78: //SEI
+                SEI(memory, cycles);
+                break;
+            case 0xF8: //SED
+                SED(memory, cycles);
+                break;
+            case 0x38: //SEC
+                SEC(memory, cycles);
+                break;
+            case 0xAA: //TAX
+                TAX(memory, cycles); break;
+            case 0xA8: //TAY
+                TAY(memory, cycles); break;
+            case 0x8A: //TXA
+                TXA(memory, cycles); break;
+            case 0x98: //TYA
+                TYA(memory, cycles); break;
             default:
                 emulator->log(Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
@@ -263,42 +291,82 @@ void Cpu::execute(int cycles, Memory & memory) {
     }
 }
 
-void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
+Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction) {
 
-    Byte value = 0;
+    Word address = 0x00;
+
+    switch (mode) {
+        case ZP: {
+            address = fetchByte(cycles, memory);
+            return address;
+        }
+        case ZPX: {
+            address = fetchByte(cycles, memory) + X;
+            cycles--; totalCycles++;
+            return address;
+        }
+        case ZPY: {
+            address = fetchByte(cycles, memory) + Y;
+            cycles--; totalCycles++;
+            return address;
+        }
+        case ABS: {
+            address = fetchWord(cycles, memory);
+            return address;
+        }
+        default: {
+            emulator->log(Emulator::ERROR, "Unknown instruction: " + instruction);
+        }
+    }
+}
+
+
+Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction) {
+
+    Word value = 0x00;
 
     switch (mode) {
         case IM:
             value = fetchByte(cycles, memory);
-            break;
+            return value;
         case ZP: {
             value = getValueFromZP(cycles, memory, ZP);
-            break;
+            return value;
         }
         case ZPX: {
             value = getValueFromZP(cycles, memory, ZPX);
-            break;
+            return value;
+        }
+        case ZPY: {
+            value = getValueFromZP(cycles, memory, ZPY);
+            return value;
         }
         case ABS: {
             value = getValueFromABS(cycles, memory, ABS);
-            break;
+            return value;
         }
         case ABX: {
             value = getValueFromABS(cycles, memory, ABX);
-            break;
+            return value;
         }
         case ABY: {
             value = getValueFromABS(cycles, memory, ABY);
-            break;
+            return value;
+        }
+        case IN: {
+            value = readWord(cycles, memory, getValueFromABS(cycles, memory, ABS));
+            return value;
         }
         default:
-            emulator->log(Emulator::ERROR, "Illegal ADC", false);
-            return;
+            emulator->log(Emulator::ERROR, "Illegal instruction", true);
+            return 0x00;
     }
+}
 
-    uint16_t carry = (C != 0) ? 1 : 0;
+void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
-    uint16_t sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + carry;
+    Byte value = getValueFromAddress(cycles, memory, mode, "ADC");
+    Word sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + static_cast<uint16_t>(c);
     Byte result = static_cast<Byte>(sum & 0xFF);
 
     C = (sum > 0xFF);  // Carry
@@ -310,190 +378,89 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 }
 
 void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
-
-    Byte value = 0;
-
-    switch (mode) {
-        case IM: {
-            value = fetchByte(cycles, memory) & A;
-            break;
-        }
-        case ZP: {
-            value = getValueFromZP(cycles, memory, ZP) & A;
-            break;
-        }
-        case ZPX: {
-            value = getValueFromZP(cycles, memory, ZPX) & A;
-            break;
-        }
-        case ABS: {
-            value = getValueFromABS(cycles, memory, ABS) & A;
-            break;
-        }
-        case ABX: {
-            value = getValueFromABS(cycles, memory, ABX) & A;
-            break;
-        }
-        case ABY: {
-            value = getValueFromABS(cycles, memory, ABY) & A;
-            break;
-        }
-        default: {
-            emulator->log(Emulator::ERROR, "Illegal AND");
-        }
-    }
-
-    setReg(a, value);
+    Byte value = getValueFromAddress(cycles, memory, mode, "AND");
+    setReg(a, value & A);
     setZ(value);
     setN(value);
-
 }
 
-
 void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
-
-    Byte value = 0;
-
-    switch (mode) {
-        case IM: {
-            value = fetchByte(cycles, memory);
-            break;
-        }
-        case ZP: {
-            value = getValueFromZP(cycles, memory, ZP);
-            break;
-        }
-        case ZPY: {
-            value = getValueFromZP(cycles, memory, ZPY);
-            break;
-        }
-        case ABS: {
-            value = getValueFromABS(cycles, memory, ABS);
-            break;
-        }
-        case ABY: {
-            value = getValueFromABS(cycles, memory, ABY);
-            break;
-        }
-        default: {
-            emulator->log(Emulator::ERROR, "Illegal LDX");
-            break;
-        }
-    }
-
+    Byte value = getValueFromAddress(cycles, memory, mode, "LDX");
     setReg(x, value);
     setZ(value);
     setN(value);
-
 }
 
 void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
-
-    Byte value = 0;
-
-    switch (mode) {
-        case IM: {
-            value = fetchByte(cycles, memory);
-            break;
-        }
-        case ZP: {
-            value = getValueFromZP(cycles, memory, ZP);
-            break;
-        }
-        case ZPY: {
-            value = getValueFromZP(cycles, memory, ZPY);
-            break;
-        }
-        case ABS: {
-            value = getValueFromABS(cycles, memory, ABS);
-            break;
-        }
-        case ABY: {
-            value = getValueFromABS(cycles, memory, ABY);
-            break;
-        }
-        default: {
-            emulator->log(Emulator::ERROR, "Illegal LDY");
-            break;
-        }
-    }
-
+    Byte value = getValueFromAddress(cycles, memory, mode, "LDY");
     setReg(y, value);
     setZ(value);
     setN(value);
-
 }
 
 void Cpu::LDA(instructionModes mode, Memory &memory, int &cycles) {
-
-    Byte value = 0;
-
-    switch (mode) {
-        case IM: {
-            value = fetchByte(cycles, memory);
-            break;
-        }
-        case ZP: {
-            value = getValueFromZP(cycles, memory, ZP);
-            break;
-        }
-        case ZPX: {
-            value = getValueFromZP(cycles, memory, ZPX);
-            break;
-        }
-        case ABS: {
-            value = getValueFromABS(cycles, memory, ABS);
-            break;
-        }
-        case ABX: {
-            value = getValueFromABS(cycles, memory, ABX);
-            break;
-        }
-        case ABY: {
-            value = getValueFromABS(cycles, memory, ABY);
-            break;
-        }
-        default: {
-            emulator->log(Emulator::ERROR, "Illegal LDA");
-            break;
-        }
-    }
-
+    Byte value = getValueFromAddress(cycles, memory, mode, "LDA");
     setReg(a, value);
     setZ(value);
     setN(value);
+}
 
+void Cpu::STX(instructionModes mode, Memory &memory, int &cycles) {
+    Word address = getAddress(cycles, memory, mode, "STX");
+    memory.writeByte(address, X);
+}
+
+void Cpu::STY(instructionModes mode, Memory &memory, int &cycles) {
+    Word address = getAddress(cycles, memory, mode, "STY");
+    memory.writeByte(address, Y);
+}
+
+void Cpu::STA(instructionModes mode, Memory &memory, int &cycles) {
+    Word address = getAddress(cycles, memory, mode, "STA");
+    memory.writeByte(address, A);
 }
 
 void Cpu::JMP(instructionModes mode, Memory &memory, int &cycles) {
-
-    Word value = 0;
-
-    switch (mode) {
-        case ABS: {
-            value = getValueFromABS(cycles, memory, ABS);
-            break;
-        }
-        case IN: {
-            value = readWord(cycles, memory, getValueFromABS(cycles, memory, ABS));
-        }
-        default: {
-            emulator->log(Emulator::ERROR, "Illegal JMP");
-        }
-    }
-
+    Word value = getAddress(cycles, memory, mode, "JMP");
     PC = value;
-
 }
 
+void Cpu::SEI(Memory &memory, int &cycles) {
+    I = 1; cycles--; totalCycles++;
+}
+
+void Cpu::SED(Memory &memory, int &cycles) {
+    D = 1; cycles--; totalCycles++;
+}
+
+void Cpu::SEC(Memory &memory, int &cycles) {
+    C = 1; cycles--; totalCycles++;
+}
+
+void Cpu::TAX(Memory &memory, int &cycles) {
+    setReg(x, A); cycles--; totalCycles++;
+    setZ(x);
+    setN(x);
+}
+
+void Cpu::TAY(Memory &memory, int &cycles) {
+    setReg(y, A); cycles--; totalCycles++;
+    setZ(y);
+    setN(y);
+}
+
+void Cpu::TXA(Memory &memory, int &cycles) {
+    setReg(a, X); cycles--; totalCycles++;
+    setZ(a);
+    setN(a);
+}
+
+void Cpu::TYA(Memory &memory, int &cycles) {
+    setReg(a, Y); cycles--; totalCycles++;
+    setZ(a);
+    setN(a);
+}
 
 Cpu::Cpu(Memory &mem) {
     reset(mem);
-}
-
-Cpu::Cpu() {
-    PC = 0x0000;
-    SP = 0x0100;
-    totalCycles = 0;
-    A = X = Y = C = Z = I = D = B = V = N = 0;
 }

@@ -23,7 +23,7 @@ private:
     Byte V : 1; //Overflow flag
     Byte N : 1; //Negative flag
 
-    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INX, INY, IN};
+    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INX, INY, IN, JMPABS};
     Emulator* emulator = nullptr;
 
 public:
@@ -34,6 +34,7 @@ public:
 
     Cpu(Memory & mem);
     Cpu();
+
     void attachEmulator(Emulator* emu);
     void reset(Memory & memory);
     void execute(int cycles, Memory & memory);
@@ -43,13 +44,16 @@ public:
     Word fetchWord(int &cycles, Memory &memory);
     Word readWord(int &cycles, Memory & memory, Word addr);
     Byte getValueFromZP(int &cycles, Memory &memory, instructionModes mode);
-    Byte getValueFromABS(int &cycles, Memory &memory, instructionModes mode);
+    Word getValueFromABS(int &cycles, Memory &memory, instructionModes mode);
 
     void setReg(registers reg, Byte value);
     void setZ(Byte value);
     void setN(Byte value);
     Byte returnReg(registers reg) const;
     Byte returnFlag(flags flag) const;
+
+    Word getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction);
+    Word getAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction);
 
     //Instructions:
     void ADC(instructionModes mode, Memory &memory, int &cycles);
@@ -59,10 +63,28 @@ public:
     // void BCS(instructionModes mode, Memory &memory, int &cycles);
     // void BEQ(instructionModes mode, Memory &memory, int &cycles);
     // void BIT(instructionModes mode, Memory &memory, int &cycles);
+
     void LDX(instructionModes mode, Memory &memory, int &cycles);
     void LDY(instructionModes mode, Memory &memory, int &cycles);
     void LDA(instructionModes mode, Memory &memory, int &cycles);
+
+    void STX(instructionModes mode, Memory &memory, int &cycles);
+    void STY(instructionModes mode, Memory &memory, int &cycles);
+    void STA(instructionModes mode, Memory &memory, int &cycles);
+
+    void TAX(Memory &memory, int &cycles);
+    void TAY(Memory &memory, int &cycles);
+    void TXA(Memory &memory, int &cycles);
+    void TYA(Memory &memory, int &cycles);
+
+
+
     void JMP(instructionModes mode, Memory &memory, int &cycles);
+
+    void SEI(Memory &memory, int &cycles);
+    void SED(Memory &memory, int &cycles);
+    void SEC(Memory &memory, int &cycles);
+
 
 };
 

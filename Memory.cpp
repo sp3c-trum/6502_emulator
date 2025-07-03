@@ -21,18 +21,12 @@ Byte &Memory::operator[](Word byte) {
     return Data[byte];
 }
 
-Byte Memory::readByte(Word &addr, int &cycles) {
+Byte Memory::readByte(const Word &addr, int &cycles) const {
     cycles--;
     return Data[addr];
 }
 
-Byte Memory::writeByte(Word &addr, int &cycles, Byte value) {
-    cycles--;
-    Data[addr] = value;
-    return Data[addr];
-};
-
-void Memory::writeByte(Word &addr, Byte value) {
+void Memory::writeByte(const Word &addr, Byte value) {
     Data[addr] = value;
 };
 

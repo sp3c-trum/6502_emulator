@@ -9,7 +9,8 @@
 #include <iostream>
 #include <bits/ostream.tcc>
 
-Emulator::Emulator() {
+Emulator::Emulator()
+    : cpu(mem) {
     cpu.reset(mem);
 }
 

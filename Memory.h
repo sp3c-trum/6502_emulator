@@ -18,9 +18,8 @@ public:
     void clear();
     Byte operator[](Word byte) const;
     Byte &operator[](Word byte);
-    Byte readByte(Word &addr, int &cycles);
-    Byte writeByte(Word &addr, int &cycles, Byte value);
-    void writeByte(Word &addr, Byte value);
+    Byte readByte(const Word &addr, int &cycles) const;
+    void writeByte(const Word &addr, Byte value);
     Memory();
 };
 
