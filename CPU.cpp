@@ -44,6 +44,36 @@ Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, Word addr) {
     return value;
 }
 
+Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes mode) {
+
+    Byte addr = 0;
+    Byte value = 0;
+
+    switch (mode) {
+        case ZP: {
+            addr = fetchByte(cycles, memory);
+            value = readByte(cycles, memory, addr);
+            return value;
+        }
+        case ZPX: {
+            addr = fetchByte(cycles, memory);
+            addr += X; cycles--; totalCycles++;
+            value = readByte(cycles, memory, addr);
+            return value;
+        }
+        case ZPY: {
+            addr = fetchByte(cycles, memory);
+            addr += Y; cycles--; totalCycles++;
+            value = readByte(cycles, memory, addr);
+            return value;
+        }
+        default: {
+            emulator->log(Emulator::ERROR, "Failed to read address from zero page.");
+            return 0xFF;
+        }
+    }
+}
+
 void Cpu::setReg(registers reg, Byte value) {
     switch (reg) {
         case a:
@@ -59,6 +89,14 @@ void Cpu::setReg(registers reg, Byte value) {
             emulator->log(Emulator::ERROR, "Invalid register: ", reg);
             std::cout << "Unknown register: " << reg << std::endl;
     }
+}
+
+void Cpu::setZ(Byte value) {
+    Z = (value == 0);
+}
+
+void Cpu::setN(Byte value) {
+    N = (value & 0x80) != 0;
 }
 
 Cpu::Byte Cpu::returnReg(registers reg) {
@@ -187,51 +225,52 @@ void Cpu::execute(int cycles, Memory & memory) {
 
 void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
-    Byte operand = 0;
+    Byte value = 0;
+    Word addr = 0;
+    Word baseAddr = 0;
 
     switch (mode) {
         case IM:
-            operand = fetchByte(cycles, memory);
+            value = fetchByte(cycles, memory);
             break;
         case ZP: {
-            Byte addr = fetchByte(cycles, memory);
-            operand = readByte(cycles, memory, addr);
+            value = getValueFromZP(cycles, memory, ZP);
             break;
         }
         case ZPX: {
-            Byte addr = fetchByte(cycles, memory);
-            addr += X; cycles--; totalCycles++;
-            operand = readByte(cycles, memory, addr);
+            value = getValueFromZP(cycles, memory, ZPX);
             break;
         }
         case ABS: {
-            Word addr = readWord(cycles, memory);
-            operand = readByte(cycles, memory, addr);
+            addr = readWord(cycles, memory);
+            value = readByte(cycles, memory, addr);
             break;
         }
         case ABX: {
-            Word addr = readWord(cycles, memory) + X;
-            operand = readByte(cycles, memory, addr);
+            baseAddr = fetchByte(cycles, memory);
+            addr = readWord(cycles, memory) + X;
+            value = readByte(cycles, memory, addr);
             break;
         }
         case ABY: {
-            Word addr = readWord(cycles, memory) + Y;
-            operand = readByte(cycles, memory, addr);
+            addr = readWord(cycles, memory) + Y;
+            value = readByte(cycles, memory, addr);
             break;
         }
         default:
-            std::cout << "Illegal ADC\n";
+            emulator->log(Emulator::ERROR, "Illegal ADC", false);
             return;
     }
 
-    uint16_t sum = A + operand + C;
-    C = (sum > 0xFF);
-    V = (~(A ^ operand) & (A ^ sum) & 0x80) != 0;    // Jeśli operand i A miały ten sam znak, ale wynik ma inny znak to ustaw overflow
+    uint16_t sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + static_cast<uint16_t>(C);
+    Byte result = static_cast<Byte>(sum & 0xFF);
 
-    setReg(a, static_cast<Byte>(sum & 0xFF));
+    C = (sum > 0xFF);  // Carry
+    V = (~(A ^ value) & (A ^ result) & 0x80) != 0;  // Overflow
 
-    Z = A == 0;
-    N = (A & 0x80) != 0;
+    setReg(a, result);
+    setZ(result);
+    setN(result);
 }
 
 void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {

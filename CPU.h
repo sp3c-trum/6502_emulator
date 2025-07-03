@@ -45,8 +45,11 @@ public:
     Byte readByte(int &cycles, Memory & memory, Byte addr);
     Byte readByte(int &cycles, Memory & memory, Word addr);
     Word readWord(int &cycles, Memory &memory);
+    Byte getValueFromZP(int &cycles, Memory &memory, instructionModes mode);
 
     void setReg(registers reg, Byte value);
+    void setZ(Byte value);
+    void setN(Byte value);
     Byte returnReg(registers reg);
     Byte returnFlag(flags flag);
 
