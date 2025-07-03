@@ -13,7 +13,7 @@ Emulator::Emulator() {
     cpu.reset(mem);
 }
 
-void Emulator::log(logMode mode, std::string message, bool withValue, Word value) {
+void Emulator::log(logMode mode, const std::string &message, const bool withValue, const Word value) {
 
     time_t timestamp;
     time(&timestamp);
@@ -45,7 +45,7 @@ void Emulator::log(logMode mode, std::string message, bool withValue, Word value
 }
 
 
-void Emulator::readROM(std::string name) {
+void Emulator::readROM(const std::string &name) {
 
     log(INFO, "Reading ROM.");
 
@@ -81,21 +81,21 @@ void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
     mem.Data[addr] = instruction;
 }
 
-void Emulator::showMemory(Word startingAddress, Word endingAddress) {
+void Emulator::showMemory(const Word startingAddress, const Word endingAddress) const {
     log(INFO, "Showing memory:\n");
     for (Word i = startingAddress; i < endingAddress; i++) {
-        std::cout << std::hex << (int) mem.Data[i] << std::hex << " ";
+        std::cout << std::hex << static_cast<int>(mem.Data[i]) << std::hex << " ";
     }
     std::cout << "\n";
 }
 
-void Emulator::showRegisters() {
+void Emulator::showRegisters() const {
     std::cout << "Register A = " << static_cast<int>(cpu.returnReg(Cpu::a))
     << "\nRegister X = " <<  static_cast<int>(cpu.returnReg(Cpu::x))
     << "\nRegister Y = " << static_cast<int>(cpu.returnReg(Cpu::y)) << "\n";
 }
 
-void Emulator::showFlag(Cpu::flags flag) {
+void Emulator::showFlag(Cpu::flags flag) const {
     std::cout << "Flag " << flag << ": " << static_cast<int>(cpu.returnFlag(flag)) << "\n";
 }
 

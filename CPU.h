@@ -5,10 +5,7 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include <cstdint>
-#include <string>
 #include "Memory.h"
-
 class Emulator;
 
 class Cpu {
@@ -26,7 +23,7 @@ private:
     Byte V : 1; //Overflow flag
     Byte N : 1; //Negative flag
 
-    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INX, INY};
+    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INX, INY, IN};
     Emulator* emulator = nullptr;
 
 public:
@@ -42,17 +39,17 @@ public:
     void execute(int cycles, Memory & memory);
 
     Byte fetchByte(int &cycles, Memory & memory);
-    Byte readByte(int &cycles, Memory & memory, Byte addr);
     Byte readByte(int &cycles, Memory & memory, Word addr);
-    Word readWord(int &cycles, Memory &memory);
+    Word fetchWord(int &cycles, Memory &memory);
+    Word readWord(int &cycles, Memory & memory, Word addr);
     Byte getValueFromZP(int &cycles, Memory &memory, instructionModes mode);
     Byte getValueFromABS(int &cycles, Memory &memory, instructionModes mode);
 
     void setReg(registers reg, Byte value);
     void setZ(Byte value);
     void setN(Byte value);
-    Byte returnReg(registers reg);
-    Byte returnFlag(flags flag);
+    Byte returnReg(registers reg) const;
+    Byte returnFlag(flags flag) const;
 
     //Instructions:
     void ADC(instructionModes mode, Memory &memory, int &cycles);
@@ -65,6 +62,7 @@ public:
     void LDX(instructionModes mode, Memory &memory, int &cycles);
     void LDY(instructionModes mode, Memory &memory, int &cycles);
     void LDA(instructionModes mode, Memory &memory, int &cycles);
+    void JMP(instructionModes mode, Memory &memory, int &cycles);
 
 };
 

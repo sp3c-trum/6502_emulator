@@ -6,7 +6,6 @@
 #define MEMORY_H
 #include <cstdint>
 
-
 class Memory {
 private:
     using Byte = unsigned char;
@@ -24,7 +23,5 @@ public:
     void writeByte(Word &addr, Byte value);
     Memory();
 };
-
-
 
 #endif //MEMORY_H
