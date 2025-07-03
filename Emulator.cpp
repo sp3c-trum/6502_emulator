@@ -10,10 +10,10 @@
 #include <bits/ostream.tcc>
 
 Emulator::Emulator() {
-
+    cpu.reset(mem);
 }
 
-void Emulator::log(logMode mode, std::string message) {
+void Emulator::log(logMode mode, std::string message, Word value) {
 
     time_t timestamp;
     time(&timestamp);
@@ -38,7 +38,7 @@ void Emulator::log(logMode mode, std::string message) {
         default:
             std::cout << "\n[" << time << "][MESSAGE] ";
     }
-    std::cout << message;
+    std::cout << message << value;
 }
 
 
@@ -71,6 +71,7 @@ void Emulator::loadROMIntoMem(std::vector<Byte>, Word addr) { //TODO Dodać ład
     }
 
     log(SUCCESS, "Successfully loaded ROM into memory");
+    cpu.reset(mem);
 }
 
 void Emulator::loadByteIntoMem(Byte instruction, Word addr) {

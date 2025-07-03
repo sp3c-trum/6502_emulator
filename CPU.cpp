@@ -1,43 +1,46 @@
 //
 // Created by P!nk on 30.06.2025.
 //
-#include "CPU.h"
-
 #include <iostream>
 #include <ostream>
-
+#include "CPU.h"
 #include "Memory.h"
+#include "Emulator.h"
+
+void Cpu::attachEmulator(Emulator* emu) {
+    this->emulator = emu;
+}
 
 void Cpu::reset(Memory & memory) {
-    PC = 0x0000;
+    PC = memory[0xFFFC] + (memory[0xFFFD] << 8);
     SP = 0x0100;
+    totalCycles = 0;
     A = X = Y = C = Z = I = D = B = V = 0;
-    memory.clear();
 }
 
 Cpu::Byte Cpu::fetchByte(int &cycles, Memory &memory) {
     const Byte value = memory[PC];
     PC++;
-    cycles--;
+    cycles--; totalCycles++;
     return value;
 }
 
-Cpu::Word Cpu::getAbsoluteAddr(int &cycles, Memory &memory) {
+Cpu::Word Cpu::readWord(int &cycles, Memory &memory) {
     Byte firstByte = fetchByte(cycles, memory);
     Byte secondByte = fetchByte(cycles, memory);
-    Word wholeAddress = (firstByte << 8) | secondByte;
+    Word wholeAddress = (secondByte << 8) | firstByte;
     return wholeAddress;
 }
 
 Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, Byte addr) {
     const Byte value = memory[addr];
-    cycles--;
+    cycles--; totalCycles++;
     return value;
 }
 
 Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, Word addr) {
     const Byte value = memory[addr];
-    cycles--;
+    cycles--; totalCycles++;
     return value;
 }
 
@@ -53,6 +56,7 @@ void Cpu::setReg(registers reg, Byte value) {
             Y = value;
             break;
         default:
+            emulator->log(Emulator::ERROR, "Invalid register: ", reg);
             std::cout << "Unknown register: " << reg << std::endl;
     }
 }
@@ -196,22 +200,22 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
         }
         case ZPX: {
             Byte addr = fetchByte(cycles, memory);
-            addr += X; cycles--;
+            addr += X; cycles--; totalCycles++;
             operand = readByte(cycles, memory, addr);
             break;
         }
         case ABS: {
-            Word addr = getAbsoluteAddr(cycles, memory);
+            Word addr = readWord(cycles, memory);
             operand = readByte(cycles, memory, addr);
             break;
         }
         case ABX: {
-            Word addr = getAbsoluteAddr(cycles, memory) + X;
+            Word addr = readWord(cycles, memory) + X;
             operand = readByte(cycles, memory, addr);
             break;
         }
         case ABY: {
-            Word addr = getAbsoluteAddr(cycles, memory) + Y;
+            Word addr = readWord(cycles, memory) + Y;
             operand = readByte(cycles, memory, addr);
             break;
         }
@@ -251,28 +255,28 @@ void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
             memoryValue = fetchByte(cycles, memory);
             finalValue = readByte(cycles, memory, static_cast<Byte>(memoryValue + X)) & A;
             setReg(a, finalValue);
-            cycles--;
+            cycles--; totalCycles++;
             break;
         }
         case ABS: {
-            address = getAbsoluteAddr(cycles, memory);
+            address = readWord(cycles, memory);
             finalValue = readByte(cycles, memory, address) & A;
             setReg(a, finalValue);
             break;
         }
         case ABX: {
-            address = getAbsoluteAddr(cycles, memory) + X;
+            address = readWord(cycles, memory) + X;
             finalValue = readByte(cycles, memory, address) & A;
             setReg(a, finalValue);
             break;
         }
         case ABY: {
-            address = getAbsoluteAddr(cycles, memory) + Y;
+            address = readWord(cycles, memory) + Y;
             finalValue = readByte(cycles, memory, address) & A;
             setReg(a, finalValue);
             break;
         }
-            default: {
+        default: {
             std::cout << "Illegal AND\n";
         }
     }
@@ -300,18 +304,18 @@ void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
         }
         case ZPY: {
             memoryValue = fetchByte(cycles, memory);
-            finalValue = memoryValue + y; cycles--;
+            finalValue = memoryValue + y; cycles--; totalCycles++;
             setReg(x, readByte(cycles,memory, finalValue));
             break;
         }
         case ABS: {
-            address = getAbsoluteAddr(cycles, memory);
+            address = readWord(cycles, memory);
             finalValue = readByte(cycles, memory, address);
             setReg(x, finalValue);
             break;
         }
         case ABY: {
-            address = getAbsoluteAddr(cycles, memory) + Y;
+            address = readWord(cycles, memory) + Y;
             finalValue = readByte(cycles, memory, address);
             setReg(x, finalValue);
             break;
@@ -344,18 +348,18 @@ void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
         }
         case ZPX: {
             memoryValue = fetchByte(cycles, memory);
-            finalValue = memoryValue + x; cycles--;
+            finalValue = memoryValue + x; cycles--; totalCycles++;
             setReg(y, readByte(cycles, memory, finalValue));
             break;
         }
         case ABS: {
-            address = getAbsoluteAddr(cycles, memory);
+            address = readWord(cycles, memory);
             finalValue = readByte(cycles, memory, address);
             setReg(y, finalValue);
             break;
         }
         case ABX: {
-            address = getAbsoluteAddr(cycles, memory) + X;
+            address = readWord(cycles, memory) + X;
             finalValue = readByte(cycles, memory, address);
             setReg(y, finalValue);
             break;
@@ -383,7 +387,7 @@ void Cpu::LDA(instructionModes mode, Memory &memory, int &cycles) {
         }
         case ZPX: {
             Byte ZPXAddress = fetchByte(cycles, memory);
-            Byte ZPXDest = ZPXAddress + x; cycles--;
+            Byte ZPXDest = ZPXAddress + x; cycles--; totalCycles++;
             setReg(a, readByte(cycles,memory, ZPXDest));
             break;
         }
@@ -402,5 +406,5 @@ Cpu::Cpu(Memory &mem) {
 }
 
 Cpu::Cpu() {
-    //Stub
+    totalCycles = 0;
 }

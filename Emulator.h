@@ -7,10 +7,10 @@
 
 #include <iosfwd>
 #include <vector>
-
 #include "CPU.h"
 #include "Memory.h"
 
+class Cpu;
 
 class Emulator {
 
@@ -32,7 +32,7 @@ public:
     void loadROMIntoMem(std::vector<Byte>, Word addr);
     void loadByteIntoMem(Byte instruction, Word addr = 0x0000);
 
-    void log(logMode mode, std::string message);
+    void log(logMode mode, std::string message, Word value = 0x0000);
     void showMemory(Word startingAddress = 0x0000, Word endingAddress = 0x00FF);
     void showRegisters();
     void showFlag(Cpu::flags flag);

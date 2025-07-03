@@ -25,6 +25,7 @@ int main() {
     emulator.readROM("test.bin");
     emulator.loadROMIntoMem(emulator.ROM, 0x00);
     emulator.showMemory(0x0000, 0x00FF);
+    emulator.cpu.execute(10000, emulator.mem);
 
     // unsigned char byte1 = 0x02;
     // unsigned char byte2 = byte1 << 1;
