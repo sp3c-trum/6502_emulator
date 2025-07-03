@@ -46,23 +46,20 @@ Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, Word addr) {
 
 Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes mode) {
 
-    Byte addr = 0;
+    Byte addr = fetchByte(cycles, memory);
     Byte value = 0;
 
     switch (mode) {
         case ZP: {
-            addr = fetchByte(cycles, memory);
             value = readByte(cycles, memory, addr);
             return value;
         }
         case ZPX: {
-            addr = fetchByte(cycles, memory);
             addr += X; cycles--; totalCycles++;
             value = readByte(cycles, memory, addr);
             return value;
         }
         case ZPY: {
-            addr = fetchByte(cycles, memory);
             addr += Y; cycles--; totalCycles++;
             value = readByte(cycles, memory, addr);
             return value;
@@ -73,6 +70,41 @@ Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes
         }
     }
 }
+
+Cpu::Byte Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mode) {
+
+    Word baseAddr = readWord(cycles,memory);
+    Word addr = 0;
+    Byte value = 0;
+
+    switch (mode) {
+        case ABS: {
+            value = readByte(cycles, memory, baseAddr);
+            return value;
+        }
+        case ABX: {
+            addr = baseAddr + X;
+            value = readByte(cycles, memory, addr);
+            if ((baseAddr & 0xFF00) != (addr & 0xFF00)) {
+                cycles--; totalCycles++; //Another cycle if the value crosses a memory page
+            }
+            return value;
+        }
+        case ABY: {
+            addr = baseAddr + Y;
+            value = readByte(cycles, memory, addr);
+            if ((baseAddr & 0xFF00) != (addr & 0xFF00)) {
+                cycles--; totalCycles++; //Another cycle if the value crosses a memory page
+            }
+            return value;
+        }
+        default: {
+            emulator->log(Emulator::ERROR, "Failed to read absolute address value.");
+            return 0xFF;
+        }
+    }
+}
+
 
 void Cpu::setReg(registers reg, Byte value) {
     switch (reg) {
@@ -146,6 +178,15 @@ void Cpu::execute(int cycles, Memory & memory) {
                 break;
             case 0x75: //ADC Zero Page,X
                 ADC(ZPX, memory, cycles);
+                break;
+            case 0x6D: // ADC Absolute
+                ADC(ABS, memory, cycles);
+                break;
+            case 0x7D: // ADC Absolute,X
+                ADC(ABX, memory, cycles);
+                break;
+            case 0x79: // ADC Absolute,Y
+                ADC(ABY, memory, cycles);
                 break;
             case 0x29: //AND Immediate
                 AND(IM, memory, cycles);
@@ -226,8 +267,6 @@ void Cpu::execute(int cycles, Memory & memory) {
 void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
 
     Byte value = 0;
-    Word addr = 0;
-    Word baseAddr = 0;
 
     switch (mode) {
         case IM:
@@ -242,19 +281,15 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
             break;
         }
         case ABS: {
-            addr = readWord(cycles, memory);
-            value = readByte(cycles, memory, addr);
+            value = getValueFromABS(cycles, memory, ABS);
             break;
         }
         case ABX: {
-            baseAddr = fetchByte(cycles, memory);
-            addr = readWord(cycles, memory) + X;
-            value = readByte(cycles, memory, addr);
+            value = getValueFromABS(cycles, memory, ABX);
             break;
         }
         case ABY: {
-            addr = readWord(cycles, memory) + Y;
-            value = readByte(cycles, memory, addr);
+            value = getValueFromABS(cycles, memory, ABY);
             break;
         }
         default:
@@ -262,7 +297,11 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
             return;
     }
 
-    uint16_t sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + static_cast<uint16_t>(C);
+    uint16_t carry = (C != 0) ? 1 : 0;
+    std::cout << "Carry: " << carry << std::endl;
+    std::cout << "Value: " << (int)value << std::endl;
+    std::cout << "A: " << (int)A << std::endl;
+    uint16_t sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + carry;
     Byte result = static_cast<Byte>(sum & 0xFF);
 
     C = (sum > 0xFF);  // Carry
