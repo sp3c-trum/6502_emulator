@@ -23,7 +23,7 @@ private:
     Byte V : 1; //Overflow flag
     Byte N : 1; //Negative flag
 
-    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INX, INY, IN, JMPABS};
+    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INDX, INDY, IN, JMPABS};
     Emulator* emulator = nullptr;
 
 public:
@@ -53,16 +53,21 @@ public:
     Byte returnFlag(flags flag) const;
 
     Word getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction);
-    Word getAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction);
+    Word getAddress(int &cycles, Memory &memory, instructionModes mode, const std::string& instruction);
 
-    //Instructions:
+    //Processor Opcodes:
     void ADC(instructionModes mode, Memory &memory, int &cycles);
     void AND(instructionModes mode, Memory &memory, int &cycles);
+
     // void ASL(instructionModes mode, Memory &memory, int &cycles);
     // void BCC(instructionModes mode, Memory &memory, int &cycles);
     // void BCS(instructionModes mode, Memory &memory, int &cycles);
     // void BEQ(instructionModes mode, Memory &memory, int &cycles);
     // void BIT(instructionModes mode, Memory &memory, int &cycles);
+
+    void INY(Memory &memory, int &cycles);
+    void INX(Memory &memory, int &cycles);
+    void INC(instructionModes mode, Memory &memory, int &cycles);
 
     void LDX(instructionModes mode, Memory &memory, int &cycles);
     void LDY(instructionModes mode, Memory &memory, int &cycles);
@@ -77,14 +82,11 @@ public:
     void TXA(Memory &memory, int &cycles);
     void TYA(Memory &memory, int &cycles);
 
-
-
     void JMP(instructionModes mode, Memory &memory, int &cycles);
 
     void SEI(Memory &memory, int &cycles);
     void SED(Memory &memory, int &cycles);
     void SEC(Memory &memory, int &cycles);
-
 
 };
 

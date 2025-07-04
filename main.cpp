@@ -13,10 +13,11 @@ int main() {
     emulator.cpu.reset(emulator.mem);
     std::cout << (int) emulator.cpu.PC << std::endl;
 
-
-    unsigned char byte1 = 0x02;
-    unsigned char byte2 = byte1 << 1;
-    bool what = (bool) (byte1 >= 128);
-    std::cout << (int) byte2 << " " << what << std::endl;
+    emulator.readROM("test.bin");
+    emulator.loadROMIntoMem(emulator.ROM, 0x0000);
+    std::cout << (int) emulator.cpu.PC << std::endl;
+    emulator.cpu.execute(100000, emulator.mem);
+    std::cout << (int) emulator.cpu.PC << std::endl;
+    emulator.showRegisters();
 
 }

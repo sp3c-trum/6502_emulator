@@ -67,15 +67,15 @@ void Emulator::readROM(const std::string &name) {
 }
 
 
-void Emulator::loadROMIntoMem(std::vector<Byte>, Word addr) { //TODO Dodać ładowanie romu do konkretnego adresu w pamięci zgodnie z nagłówkiem
+void Emulator::loadROMIntoMem(const std::vector<Byte>& rom, Word addr) {
     log(INFO, "Loading ROM into memory.");
 
-    for (Word i = addr; i < 0xFFFF; i++) {
-        mem.Data[i] = ROM[i];
+    for (size_t i = 0; i < rom.size(); i++) {
+        if (addr + i >= 0x10000) break;
+        mem.Data[addr + i] = rom[i];
     }
 
     log(SUCCESS, "Successfully loaded ROM into memory\n");
-    cpu.reset(mem);
 }
 
 void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
