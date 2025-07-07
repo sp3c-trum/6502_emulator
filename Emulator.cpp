@@ -3,57 +3,82 @@
 //
 
 #include "Emulator.h"
-
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <bits/ostream.tcc>
+#include <sstream>
 
 Emulator::Emulator()
     : cpu(mem) {
     cpu.reset(mem);
 }
 
-void Emulator::log(logMode mode, const std::string &message, const bool withValue, const Word value) {
+#include <ctime>
+#include <iostream>
+#include <string>
+#include "Emulator.h"
 
+void Emulator::log(int totalCycles, logMode mode, const std::string &message, bool withValue, const std::string &value) {
     time_t timestamp;
     time(&timestamp);
-    std::string time = std::strtok(ctime(&timestamp), "\n");
+    std::string timeStr = std::strtok(ctime(&timestamp), "\n");
+    std::cout << "\n[" << totalCycles << "]";
 
     switch (mode) {
         case INFO:
-            std::cout << "\n[" << time << "][INFO]    ";
+            std::cout << "[" << timeStr << "][INFO]    ";
             break;
         case ERROR:
-            std::cout << "\n[" << time << "][ERROR]   ";
+            std::cout << "[" << timeStr << "][ERROR]   ";
             break;
         case SUCCESS:
-            std::cout << "\n[" << time << "][SUCCESS] ";
+            std::cout << "[" << timeStr << "][SUCCESS] ";
             break;
         case WARNING:
-            std::cout << "\n[" << time << "][WARNING] ";
+            std::cout << "[" << timeStr << "][WARNING] ";
             break;
         case DEBUG:
-            std::cout << "\n[" << time << "][DEBUG]   ";
+            std::cout << "[" << timeStr << "][DEBUG]   ";
             break;
         default:
-            std::cout << "\n[" << time << "][MESSAGE] ";
+            std::cout << "[" << timeStr << "][MESSAGE] ";
     }
+
     std::cout << message;
     if (withValue) {
-        std::cout << value;
+        std::cout << " " << value;
     }
 }
 
+void Emulator::log(int totalCycles, logMode mode, const std::string &message) {
+    log(totalCycles, mode, message, false, "");
+}
+
+void Emulator::log(int totalCycles, logMode mode, const std::string &message, Byte value) {
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::uppercase << static_cast<int>(value);
+    log(totalCycles, mode, message, true, ss.str());
+}
+
+void Emulator::log(int totalCycles, logMode mode, const std::string &message, Word value) {
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::uppercase << value;
+    log(totalCycles, mode, message, true, ss.str());
+}
+
+void Emulator::log(int totalCycles, logMode mode, const std::string &message, const std::string &value) {
+    log(totalCycles, mode, message, true, value);
+}
 
 void Emulator::readROM(const std::string &name) {
 
-    log(INFO, "Reading ROM.");
+    log(0, INFO, "Reading ROM.");
 
     std::ifstream file (name, std::ios::binary);
     if (!file.is_open())
     {
-        log(ERROR, "Failed to open file");
+        log(0, ERROR, "Failed to open file");
         return;
     }
 
@@ -63,19 +88,19 @@ void Emulator::readROM(const std::string &name) {
         ROM.push_back(static_cast<unsigned char>(byte));
     }
 
-    log(SUCCESS, "Successfully read ROM");
+    log(0, SUCCESS, "Successfully read ROM");
 }
 
 
 void Emulator::loadROMIntoMem(const std::vector<Byte>& rom, Word addr) {
-    log(INFO, "Loading ROM into memory.");
+    log(0, INFO, "Loading ROM into memory.");
 
     for (size_t i = 0; i < rom.size(); i++) {
         if (addr + i >= 0x10000) break;
         mem.Data[addr + i] = rom[i];
     }
 
-    log(SUCCESS, "Successfully loaded ROM into memory\n");
+    log(0, SUCCESS, "Successfully loaded ROM into memory\n");
 }
 
 void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
@@ -83,7 +108,7 @@ void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
 }
 
 void Emulator::showMemory(const Word startingAddress, const Word endingAddress) const {
-    log(INFO, "Showing memory:\n");
+    log(0, INFO, "Showing memory:\n");
     for (Word i = startingAddress; i < endingAddress; i++) {
         std::cout << std::hex << static_cast<int>(mem.Data[i]) << std::hex << " ";
     }

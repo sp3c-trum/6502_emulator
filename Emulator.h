@@ -30,7 +30,12 @@ public:
     void loadROMIntoMem(const std::vector<Byte> &rom, Word addr);
     void loadByteIntoMem(Byte instruction, Word addr = 0x0000);
 
-    static void log(logMode mode, const std::string &message, bool withValue = false, Word value = 0x0000);
+    static void log(int totalCycles, logMode mode, const std::string &message);
+    static void log(int totalCycles, logMode mode, const std::string &message, Byte value);
+    static void log(int totalCycles, logMode mode, const std::string &message, Word value);
+    static void log(int totalCycles, logMode mode, const std::string &message, const std::string &value);
+    static void log(int totalCycles, logMode mode, const std::string &message, bool withValue, const std::string &value);
+
     void showMemory(Word startingAddress = 0x0000, Word endingAddress = 0x00FF) const;
     void showRegisters() const;
     void showFlag(Cpu::flags flag) const;

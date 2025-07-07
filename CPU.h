@@ -23,7 +23,8 @@ private:
     Byte V : 1; //Overflow flag
     Byte N : 1; //Negative flag
 
-    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INDX, INDY, IN, JMPABS};
+    enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INDX, INDY, IN};
+    std::string toString(instructionModes mode);
     Emulator* emulator = nullptr;
 
 public:
@@ -57,7 +58,12 @@ public:
 
     //Processor Opcodes:
     void ADC(instructionModes mode, Memory &memory, int &cycles);
+    void SBC(instructionModes mode, Memory &memory, int &cycles);
+    void CMP(instructionModes mode, Memory &memory, int &cycles);
+
     void AND(instructionModes mode, Memory &memory, int &cycles);
+    void EOR(instructionModes mode, Memory &memory, int &cycles);
+    void ORA(instructionModes mode, Memory &memory, int &cycles);
 
     // void ASL(instructionModes mode, Memory &memory, int &cycles);
     // void BCC(instructionModes mode, Memory &memory, int &cycles);
@@ -68,6 +74,9 @@ public:
     void INY(Memory &memory, int &cycles);
     void INX(Memory &memory, int &cycles);
     void INC(instructionModes mode, Memory &memory, int &cycles);
+    void DEY(Memory &memory, int &cycles);
+    void DEX(Memory &memory, int &cycles);
+    void DEC(instructionModes mode, Memory &memory, int &cycles);
 
     void LDX(instructionModes mode, Memory &memory, int &cycles);
     void LDY(instructionModes mode, Memory &memory, int &cycles);
@@ -87,6 +96,10 @@ public:
     void SEI(Memory &memory, int &cycles);
     void SED(Memory &memory, int &cycles);
     void SEC(Memory &memory, int &cycles);
+    void CLC(Memory &memory, int &cycles);
+    void CLD(Memory &memory, int &cycles);
+    void CLI(Memory &memory, int &cycles);
+    void CLV(Memory &memory, int &cycles);
 
 };
 
