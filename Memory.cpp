@@ -7,11 +7,10 @@ using Byte = unsigned char;
 using Word = unsigned short;
 
 void Memory::clear() {
-    for (int i = 0; i < MAXMEM; i++) {
-        Data[i] = 0x69;
+    for (unsigned char & i : Data) {
+        i = 0x69;
     }
 }
-
 
 Byte Memory::operator[](Word byte) const {
     return Data[byte];

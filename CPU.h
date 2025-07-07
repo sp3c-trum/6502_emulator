@@ -13,28 +13,27 @@ private:
     using Byte = unsigned char;
     using Word = unsigned short;
 
-    Word SP; //Stack pointer
-    Byte A, X, Y; //Registers
-    Byte C : 1; //Carry flag
-    Byte Z : 1; //Zero flag
-    Byte I : 1; //Interrupt disable
-    Byte D : 1; //Decimal mode
-    Byte B : 1; //Break command
-    Byte V : 1; //Overflow flag
-    Byte N : 1; //Negative flag
+    Word SP{}; //Stack pointer
+    Byte A{}, X{}, Y{}; //Registers
+    Byte C : 1{}; //Carry flag
+    Byte Z : 1{}; //Zero flag
+    Byte I : 1{}; //Interrupt disable
+    Byte D : 1{}; //Decimal mode
+    Byte B : 1{}; //Break command
+    Byte V : 1{}; //Overflow flag
+    Byte N : 1{}; //Negative flag
 
     enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INDX, INDY, IN};
-    std::string toString(instructionModes mode);
+    static std::string toString(instructionModes mode);
     Emulator* emulator = nullptr;
 
 public:
-    Word PC; //Program counter                  (out of private for debug purposes)
+    Word PC{}; //Program counter                  (out of private for debug purposes)
     enum registers {a, x, y}; //Register names  (out of private for debug purposes)
     enum flags {c, z, i, d, b, v, n}; //        (out of private for debug purposes)
-    int totalCycles;
+    int totalCycles{};
 
-    Cpu(Memory & mem);
-    Cpu();
+    explicit Cpu(Memory & mem);
 
     void attachEmulator(Emulator* emu);
     void reset(Memory & memory);
@@ -50,10 +49,11 @@ public:
     void setReg(registers reg, Byte value);
     void setZ(Byte value);
     void setN(Byte value);
-    Byte returnReg(registers reg) const;
-    Byte returnFlag(flags flag) const;
+    [[nodiscard]] Byte returnReg(registers reg) const;
+    [[nodiscard]] Byte returnFlag(flags flag) const;
 
-    Word getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction);
+    void branch(int &cycles, Memory &memory, Byte offset);
+    Word getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, const std::string &instruction);
     Word getAddress(int &cycles, Memory &memory, instructionModes mode, const std::string& instruction);
 
     //Processor Opcodes:
@@ -65,11 +65,14 @@ public:
     void EOR(instructionModes mode, Memory &memory, int &cycles);
     void ORA(instructionModes mode, Memory &memory, int &cycles);
 
-    // void ASL(instructionModes mode, Memory &memory, int &cycles);
-    // void BCC(instructionModes mode, Memory &memory, int &cycles);
-    // void BCS(instructionModes mode, Memory &memory, int &cycles);
-    // void BEQ(instructionModes mode, Memory &memory, int &cycles);
-    // void BIT(instructionModes mode, Memory &memory, int &cycles);
+    void BCC(Memory &memory, int &cycles);
+    void BCS(Memory &memory, int &cycles);
+    void BEQ(Memory &memory, int &cycles);
+    void BMI(Memory &memory, int &cycles);
+    void BNE(Memory &memory, int &cycles);
+    void BPL(Memory &memory, int &cycles);
+    void BVC(Memory &memory, int &cycles);
+    void BVS(Memory &memory, int &cycles);
 
     void INY(Memory &memory, int &cycles);
     void INX(Memory &memory, int &cycles);

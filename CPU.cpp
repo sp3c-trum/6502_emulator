@@ -60,6 +60,17 @@ Cpu::Word Cpu::readWord(int &cycles, Memory &memory, Word addr) {
     return wholeAddress;
 }
 
+void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
+    const Word oldPC = PC;
+    PC += offset;
+    cycles--; totalCycles++;
+
+    if ((oldPC & 0xFF00) != (PC & 0xFF00)) {
+        cycles--; totalCycles++;
+    }
+}
+
+
 Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes mode) {
 
     Byte addr = fetchByte(cycles, memory);
@@ -134,7 +145,6 @@ Cpu::Word Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mod
     }
 }
 
-
 void Cpu::setReg(registers reg, Byte value) {
     switch (reg) {
         case a:
@@ -147,7 +157,7 @@ void Cpu::setReg(registers reg, Byte value) {
             Y = value;
             break;
         default:
-            Emulator::log(totalCycles, Emulator::ERROR, "Invalid register: ", (Byte) reg);
+            Emulator::log(totalCycles, Emulator::ERROR, "Invalid register: ", static_cast<Byte>(reg));
             std::cout << "Unknown register: " << reg << std::endl;
     }
 }
@@ -393,6 +403,38 @@ void Cpu::execute(int cycles, Memory & memory) {
                 ORA(INDX, memory, cycles); break;
             case 0x11: //ORA (Indirect),Y
                 ORA(INDY, memory, cycles); break;
+            case 0x70: //BVS
+                BVS(memory, cycles); break;
+            case 0x50: //BVC
+                BVC(memory, cycles); break;
+            case 0x10: //BPL
+                BPL(memory, cycles); break;
+            case 0xD0: //BNE
+                BNE(memory, cycles); break;
+            case 0x30: //BMI
+                BMI(memory, cycles); break;
+            case 0xF0: //BEQ
+                BEQ(memory, cycles); break;
+            case 0xB0: //BCS
+                BCS(memory, cycles); break;
+            case 0x90: //BCC
+                BCC(memory, cycles); break;
+            case 0xC9: //CMP
+                CMP(IM, memory, cycles); break;
+            case 0xC5: //CMP Zero Page
+                CMP(ZP, memory, cycles); break;
+            case 0xD5: //CMP Zero Page,X
+                CMP(ZPX, memory, cycles); break;
+            case 0xCD: //CMP Absolute
+                CMP(ABS, memory, cycles); break;
+            case 0xDD: //CMP Absolute,X
+                CMP(ABX, memory, cycles); break;
+            case 0xD9: //CMP Absolute,Y
+                CMP(ABY, memory, cycles); break;
+            case 0xC1: //CMP (Indirect,X)
+                CMP(INDX, memory, cycles); break;
+            case 0xD1: //CMP (Indirect),Y
+                CMP(INDY, memory, cycles); break;
             default:
                 Emulator::log(totalCycles, Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
@@ -445,14 +487,14 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, co
             return address;
         }
         default: {
-            emulator->log(totalCycles, Emulator::ERROR, "Illegal instruction: " + (std::string)instruction);
+            Emulator::log(totalCycles, Emulator::ERROR, "Illegal instruction: " + static_cast<std::string>(instruction));
             return 0x00;
         }
     }
 }
 
 
-Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, std::string instruction) {
+Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, const std::string &instruction) {
 
     Word value = 0x00;
 
@@ -497,7 +539,7 @@ Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes
             return value;
         }
         default:
-            emulator->log(totalCycles, Emulator::ERROR, "Illegal instruction", instruction );
+            Emulator::log(totalCycles, Emulator::ERROR, "Illegal instruction", instruction );
             return 0x00;
     }
 }
@@ -592,8 +634,14 @@ void Cpu::ORA(instructionModes mode, Memory &memory, int &cycles) {
 
 void Cpu::CMP(instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "CMP");
-    //TODO
+    Word sum = static_cast<uint16_t>(A) - static_cast<uint16_t>(value);
+    Byte result = static_cast<Byte>(sum & 0xFF);
+
+    C = A >= value;
+    Z = A == value;
+    setN(result);
 }
+
 
 void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "LDX");
@@ -686,6 +734,62 @@ void Cpu::TYA(Memory &memory, int &cycles) {
     setReg(a, Y); cycles--; totalCycles++;
     setZ(a);
     setN(a);
+}
+
+void Cpu::BCC(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (C == 0) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BCS(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (C == 1) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BEQ(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (Z == 1) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BMI(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (N == 1) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BNE(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (Z == 0) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BPL(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (N == 0) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BVC(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (V == 0) {
+        branch(cycles, memory, offset);
+    }
+}
+
+void Cpu::BVS(Memory &memory, int &cycles) {
+    Byte offset = fetchByte(cycles, memory);
+    if (V == 1) {
+        branch(cycles, memory, offset);
+    }
 }
 
 Cpu::Cpu(Memory &mem) {

@@ -15,9 +15,7 @@ Emulator::Emulator()
 }
 
 #include <ctime>
-#include <iostream>
 #include <string>
-#include "Emulator.h"
 
 void Emulator::log(int totalCycles, logMode mode, const std::string &message, bool withValue, const std::string &value) {
     time_t timestamp;
@@ -93,15 +91,22 @@ void Emulator::readROM(const std::string &name) {
 
 
 void Emulator::loadROMIntoMem(const std::vector<Byte>& rom, Word addr) {
-    log(0, INFO, "Loading ROM into memory.");
+    log(0, INFO, "Loading ROM into memory at address: ", addr);
 
-    for (size_t i = 0; i < rom.size(); i++) {
-        if (addr + i >= 0x10000) break;
-        mem.Data[addr + i] = rom[i];
+    for (size_t i = 0; i < rom.size(); ++i) {
+        if ((addr + i) < 0x10000) {
+            mem.Data[addr + i] = rom[i];
+        }
     }
 
-    log(0, SUCCESS, "Successfully loaded ROM into memory\n");
+    // Ustaw reset vector na adres startowy ROM
+    mem.Data[0xFFFC] = static_cast<Byte>(addr & 0x00FF);         // Low byte
+    mem.Data[0xFFFD] = static_cast<Byte>((addr >> 8) & 0x00FF);  // High byte
+
+    log(0, SUCCESS, "Successfully loaded ROM into memory");
 }
+
+
 
 void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
     mem.Data[addr] = instruction;

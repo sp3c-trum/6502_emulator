@@ -14,7 +14,7 @@ private:
     static constexpr uint32_t MAXMEM = 65536;
 
 public:
-    Byte Data[MAXMEM];
+    Byte Data[MAXMEM]{};
     void clear();
     Byte operator[](Word byte) const;
     Byte &operator[](Word byte);
