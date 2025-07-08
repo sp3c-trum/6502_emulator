@@ -23,6 +23,31 @@ std::string Cpu::toString(instructionModes mode) {
     }
 }
 
+Cpu::Byte Cpu::encodeFlags() const {
+    Byte status = 0;
+
+    status |= (N << 7);
+    status |= (V << 6);
+    status |= (1 << 5);            // Unused bit zawsze ustawiony na 1
+    status |= (B << 4);
+    status |= (D << 3);
+    status |= (I << 2);
+    status |= (Z << 1);
+    status |= C;
+
+    return status;
+}
+
+void Cpu::decodeFlags(Byte status) {
+    N = (status >> 7) & 1;
+    V = (status >> 6) & 1;
+    B = (status >> 4) & 1;
+    D = (status >> 3) & 1;
+    I = (status >> 2) & 1;
+    Z = (status >> 1) & 1;
+    C = status & 1;
+}
+
 void Cpu::attachEmulator(Emulator* emu) {
     this->emulator = emu;
 }
@@ -60,6 +85,18 @@ Cpu::Word Cpu::readWord(int &cycles, Memory &memory, Word addr) {
     return wholeAddress;
 }
 
+void Cpu::writeToStack(int &cycles, Memory &memory, Byte value){
+    memory[SP] = value;
+    SP--; totalCycles++; cycles--;
+}
+
+Cpu::Byte Cpu::fetchFromStack(int &cycles, Memory &memory){
+    Byte value = memory[SP];
+    memory[SP] = 0;
+    SP++; cycles--; totalCycles++;
+    return value;
+}
+
 void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
     const Word oldPC = PC;
     PC += offset;
@@ -69,7 +106,6 @@ void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
         cycles--; totalCycles++;
     }
 }
-
 
 Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes mode) {
 
@@ -435,6 +471,18 @@ void Cpu::execute(int cycles, Memory & memory) {
                 CMP(INDX, memory, cycles); break;
             case 0xD1: //CMP (Indirect),Y
                 CMP(INDY, memory, cycles); break;
+            case 0x48: //PHA
+                PHA(memory, cycles); break;
+            case 0x08: //PHP
+                PHP(memory, cycles); break;
+            case 0x68: //PLA
+                PLA(memory, cycles); break;
+            case 0x28: //PLP
+                PLP(memory, cycles); break;
+            case 0xBA: //TSX
+                TSX(memory, cycles); break;
+            case 0x9A: //TXS
+                TXS(memory, cycles); break;
             default:
                 Emulator::log(totalCycles, Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
@@ -737,59 +785,95 @@ void Cpu::TYA(Memory &memory, int &cycles) {
 }
 
 void Cpu::BCC(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (C == 0) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BCS(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (C == 1) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BEQ(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (Z == 1) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BMI(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (N == 1) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BNE(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (Z == 0) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BPL(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (N == 0) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BVC(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (V == 0) {
         branch(cycles, memory, offset);
     }
 }
 
 void Cpu::BVS(Memory &memory, int &cycles) {
-    Byte offset = fetchByte(cycles, memory);
+    const Byte offset = fetchByte(cycles, memory);
     if (V == 1) {
         branch(cycles, memory, offset);
     }
+}
+
+void Cpu::PHA(Memory &memory, int &cycles) {
+    writeToStack(cycles, memory, A);
+    totalCycles++; cycles--;
+}
+
+void Cpu::PLA(Memory &memory, int &cycles) {
+    const Byte value = fetchFromStack(cycles, memory);
+    totalCycles++; cycles--;
+    setReg(a, value);
+    setZ(a);
+    setN(a);
+}
+
+void Cpu::PHP(Memory &memory, int &cycles) {
+    const Byte value = encodeFlags();
+    writeToStack(cycles, memory, value);
+    totalCycles++; cycles--;
+}
+
+void Cpu::PLP(Memory &memory, int &cycles) {
+    const Byte value = fetchFromStack(cycles, memory);
+    decodeFlags(value);
+    totalCycles++; cycles--;
+}
+
+void Cpu::TSX(Memory &memory, int &cycles) {
+    const Byte value = fetchFromStack(cycles, memory);
+    setReg(x, value);
+    setZ(x);
+    setN(x);
+}
+
+void Cpu::TXS(Memory &memory, int &cycles) {
+    writeToStack(cycles, memory, X);
 }
 
 Cpu::Cpu(Memory &mem) {

@@ -25,10 +25,14 @@ private:
 
     enum instructionModes {ACC, IM, ZP, ZPX, ZPY, REL, ABS, ABX, ABY, INDX, INDY, IN};
     static std::string toString(instructionModes mode);
+
+    [[nodiscard]] Byte encodeFlags() const;
+    void decodeFlags(Byte status);
+
     Emulator* emulator = nullptr;
 
 public:
-    Word PC{}; //Program counter                  (out of private for debug purposes)
+    Word PC{}; //Program counter                (out of private for debug purposes)
     enum registers {a, x, y}; //Register names  (out of private for debug purposes)
     enum flags {c, z, i, d, b, v, n}; //        (out of private for debug purposes)
     int totalCycles{};
@@ -36,13 +40,17 @@ public:
     explicit Cpu(Memory & mem);
 
     void attachEmulator(Emulator* emu);
-    void reset(Memory & memory);
-    void execute(int cycles, Memory & memory);
+    void reset(Memory &memory);
+    void execute(int cycles, Memory &memory);
 
-    Byte fetchByte(int &cycles, Memory & memory);
-    Byte readByte(int &cycles, Memory & memory, Word addr);
+    Byte fetchByte(int &cycles, Memory &memory);
+    Byte readByte(int &cycles, Memory &memory, Word addr);
     Word fetchWord(int &cycles, Memory &memory);
-    Word readWord(int &cycles, Memory & memory, Word addr);
+    Word readWord(int &cycles, Memory &memory, Word addr);
+
+    void writeToStack(int &cycles, Memory &memory, Byte value);
+    Byte fetchFromStack(int &cycles, Memory &memory);
+
     Byte getValueFromZP(int &cycles, Memory &memory, instructionModes mode);
     Word getValueFromABS(int &cycles, Memory &memory, instructionModes mode);
 
@@ -103,6 +111,14 @@ public:
     void CLD(Memory &memory, int &cycles);
     void CLI(Memory &memory, int &cycles);
     void CLV(Memory &memory, int &cycles);
+
+    void PHA(Memory &memory, int &cycles);
+    void PLA(Memory &memory, int &cycles);
+    void PHP(Memory &memory, int &cycles);
+    void PLP(Memory &memory, int &cycles);
+
+    void TSX(Memory &memory, int &cycles);
+    void TXS(Memory &memory, int &cycles);
 
 };
 
