@@ -70,19 +70,18 @@ void Emulator::log(int totalCycles, logMode mode, const std::string &message, co
 }
 
 void Emulator::readROM(const std::string &name) {
+    char byte;
+    std::ifstream file (name, std::ios::binary);
 
     log(0, INFO, "Reading ROM.");
 
-    std::ifstream file (name, std::ios::binary);
     if (!file.is_open())
     {
         log(0, ERROR, "Failed to open file");
         return;
     }
 
-    char byte;
     while (file.read(&byte, 1)) {
-        //std::cout << std::hex << (unsigned int)(unsigned char)byte << ' ';
         ROM.push_back(static_cast<unsigned char>(byte));
     }
 
@@ -90,18 +89,15 @@ void Emulator::readROM(const std::string &name) {
 }
 
 
-void Emulator::loadROMIntoMem(const std::vector<Byte>& rom, Word addr) {
+void Emulator::loadROMIntoMem(const Word addr) {
     log(0, INFO, "Loading ROM into memory at address: ", addr);
 
-    for (size_t i = 0; i < rom.size(); ++i) {
-        if ((addr + i) < 0x10000) {
-            mem.Data[addr + i] = rom[i];
-        }
-    }
+    for (size_t i = 0; i < ROM.size(); ++i)
+        mem[addr + i] = ROM[i];
 
     // Ustaw reset vector na adres startowy ROM
-    mem.Data[0xFFFC] = static_cast<Byte>(addr & 0x00FF);         // Low byte
-    mem.Data[0xFFFD] = static_cast<Byte>((addr >> 8) & 0x00FF);  // High byte
+    mem[0xFFFC] = static_cast<Byte>(addr & 0x00FF);         // Low byte
+    mem[0xFFFD] = static_cast<Byte>((addr >> 8) & 0x00FF);  // High byte
 
     log(0, SUCCESS, "Successfully loaded ROM into memory");
 }

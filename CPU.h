@@ -30,12 +30,11 @@ private:
     void decodeFlags(Byte status);
 
     Emulator* emulator = nullptr;
-
+    int totalCycles{};
 public:
     Word PC{}; //Program counter                (out of private for debug purposes)
     enum registers {a, x, y}; //Register names  (out of private for debug purposes)
     enum flags {c, z, i, d, b, v, n}; //        (out of private for debug purposes)
-    int totalCycles{};
 
     explicit Cpu(Memory & mem);
 

@@ -27,7 +27,7 @@ public:
     Emulator();
 
     void readROM(const std::string &name);
-    void loadROMIntoMem(const std::vector<Byte> &rom, Word addr);
+    void loadROMIntoMem(Word addr);
     void loadByteIntoMem(Byte instruction, Word addr = 0x0000);
 
     static void log(int totalCycles, logMode mode, const std::string &message);

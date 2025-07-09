@@ -113,7 +113,7 @@ Cpu::Word Cpu::fetchWordFromStack(int &cycles, Memory &memory) {
 void Cpu::branch(int &cycles, const Byte offset) {
     const Word oldPC = PC;
     const auto signedOffset = static_cast<int8_t>(offset);
-    PC += signedOffset;
+    PC += signedOffset - 1;
     cycles--; totalCycles++;
 
     if ((oldPC & 0xFF00) != (PC & 0xFF00)) {
@@ -259,6 +259,11 @@ Cpu::Byte Cpu::returnFlag(const flags flag) const {
 void Cpu::execute(int cycles, Memory &memory) {
     while (cycles > 0) {
         const Byte instruction = fetchByte(cycles, memory);
+        std::cout << "\nCykl: " << totalCycles
+            << ", Instrukcja: " << static_cast<int>(instruction);
+            // << "\nRegister A = " << static_cast<int>(A)
+            // << "\nRegister X = " <<  static_cast<int>(X)
+            // << "\nRegister Y = " << static_cast<int>(Y) << "\n";
         switch (instruction) {
             case 0x69: //ADC Immediate
                 ADC(IM, memory, cycles); break;
@@ -563,18 +568,13 @@ void Cpu::execute(int cycles, Memory &memory) {
             case 0x1E: //ASL Absolute,X
                 ASL(ABX, memory, cycles); break;
             case 0xFF: // CUSTOM OPCODE - Halt CPU.
-                std::cout << "Halting CPU - encountered 0xFF\n";
+                std::cout << "\nHalting CPU - encountered 0xFF";
                 cycles = 0;
                 break;
             default:
                 Emulator::log(totalCycles, Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
         }
-        // std::cout << "Cykl: " << totalCycles
-        // << "\nInstrukcja: " << (int)instruction
-        // << "\nRegister A = " << static_cast<int>(A)
-        // << "\nRegister X = " <<  static_cast<int>(X)
-        // << "\nRegister Y = " << static_cast<int>(Y) << "\n";
     }
 }
 
