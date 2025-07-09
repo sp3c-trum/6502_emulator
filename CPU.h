@@ -62,7 +62,7 @@ public:
     [[nodiscard]] Byte returnReg(registers reg) const;
     [[nodiscard]] Byte returnFlag(flags flag) const;
 
-    void branch(int &cycles, Memory &memory, Byte offset);
+    void branch(int &cycles, Byte offset);
     Word getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, const std::string &instruction);
     Word getAddress(int &cycles, Memory &memory, instructionModes mode, const std::string& instruction);
 
@@ -76,6 +76,7 @@ public:
     void ORA(instructionModes mode, Memory &memory, int &cycles);
     void CPY(instructionModes mode, Memory &memory, int &cycles);
     void CPX(instructionModes mode, Memory &memory, int &cycles);
+    void BIT(instructionModes mode, Memory &memory, int &cycles);
 
     void BCC(Memory &memory, int &cycles);
     void BCS(Memory &memory, int &cycles);
@@ -109,6 +110,8 @@ public:
     void JMP(instructionModes mode, Memory &memory, int &cycles);
     void JSR(Memory &memory, int &cycles);
     void RTS(Memory &memory, int &cycles);
+    void BRK(Memory &memory, int &cycles);
+    void RTI(Memory &memory, int &cycles);
 
     void SEI(Memory &memory, int &cycles);
     void SED(Memory &memory, int &cycles);
@@ -128,6 +131,8 @@ public:
 
     void ROR(instructionModes mode, Memory &memory, int &cycles);
     void ROL(instructionModes mode, Memory &memory, int &cycles);
+    void ASL(instructionModes mode, Memory &memory, int &cycles);
+    void LSR(instructionModes mode, Memory &memory, int &cycles);
 
 };
 

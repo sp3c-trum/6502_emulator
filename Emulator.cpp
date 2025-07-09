@@ -121,7 +121,7 @@ void Emulator::showMemory(const Word startingAddress, const Word endingAddress) 
 }
 
 void Emulator::showRegisters() const {
-    std::cout << "Register A = " << static_cast<int>(cpu.returnReg(Cpu::a))
+    std::cout << "\nRegister A = " << static_cast<int>(cpu.returnReg(Cpu::a))
     << "\nRegister X = " <<  static_cast<int>(cpu.returnReg(Cpu::x))
     << "\nRegister Y = " << static_cast<int>(cpu.returnReg(Cpu::y)) << "\n";
 }

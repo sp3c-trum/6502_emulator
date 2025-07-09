@@ -7,7 +7,7 @@
 #include "Memory.h"
 #include "Emulator.h"
 
-std::string Cpu::toString(instructionModes mode) {
+std::string Cpu::toString(const instructionModes mode) {
     switch (mode) {
         case IM:   return "IM";
         case ZP:   return "ZP";
@@ -38,7 +38,7 @@ Cpu::Byte Cpu::encodeFlags() const {
     return status;
 }
 
-void Cpu::decodeFlags(Byte status) {
+void Cpu::decodeFlags(const Byte status) {
     N = (status >> 7) & 1;
     V = (status >> 6) & 1;
     B = (status >> 4) & 1;
@@ -48,11 +48,11 @@ void Cpu::decodeFlags(Byte status) {
     C = status & 1;
 }
 
-void Cpu::attachEmulator(Emulator* emu) {
+void Cpu::attachEmulator(Emulator *emu) {
     this->emulator = emu;
 }
 
-void Cpu::reset(Memory & memory) {
+void Cpu::reset(Memory &memory) {
     PC = memory[0xFFFC] + (memory[0xFFFD] << 8);
     SP = 0xFF;
     totalCycles = 0;
@@ -72,13 +72,13 @@ Cpu::Word Cpu::fetchWord(int &cycles, Memory &memory) {
     return wholeAddress;
 }
 
-Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, Word addr) {
+Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, const Word addr) {
     const Byte value = memory[addr];
     cycles--; totalCycles++;
     return value;
 }
 
-Cpu::Word Cpu::readWord(int &cycles, Memory &memory, Word addr) {
+Cpu::Word Cpu::readWord(int &cycles, Memory &memory, const Word addr) {
     const Byte firstByte = readByte(cycles, memory, addr);
     const Byte secondByte = readByte(cycles, memory, (addr + 1) & 0x00FF);
     const Word wholeAddress = (secondByte << 8) | firstByte;
@@ -91,8 +91,8 @@ void Cpu::writeToStack(int &cycles, Memory &memory, Byte value) {
 }
 
 void Cpu::writeWordToStack(int &cycles, Memory &memory, Word value) {
-    Byte high = (value >> 8) & 0xFF;
-    Byte low  = value & 0xFF;
+    const Byte high = (value >> 8) & 0xFF;
+    const Byte low  = value & 0xFF;
 
     writeToStack(cycles, memory, high);
     writeToStack(cycles, memory, low);
@@ -100,20 +100,20 @@ void Cpu::writeWordToStack(int &cycles, Memory &memory, Word value) {
 
 Cpu::Byte Cpu::fetchFromStack(int &cycles, Memory &memory) {
     SP++; totalCycles++; cycles--;
-    Byte value = memory[0x0100 + SP];
-    return value;
+    return memory[0x0100 + SP];
 }
 
 
 Cpu::Word Cpu::fetchWordFromStack(int &cycles, Memory &memory) {
-    Byte low = fetchFromStack(cycles, memory);
-    Byte high = fetchFromStack(cycles, memory);
+    const Byte high = fetchFromStack(cycles, memory);
+    const Byte low = fetchFromStack(cycles, memory);
     return (high << 8) | low;
 }
 
-void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
+void Cpu::branch(int &cycles, const Byte offset) {
     const Word oldPC = PC;
-    PC += offset;
+    const auto signedOffset = static_cast<int8_t>(offset);
+    PC += signedOffset;
     cycles--; totalCycles++;
 
     if ((oldPC & 0xFF00) != (PC & 0xFF00)) {
@@ -121,7 +121,7 @@ void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
     }
 }
 
-Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes mode) {
+Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, const instructionModes mode) {
 
     Byte addr = fetchByte(cycles, memory);
     Byte value = 0;
@@ -161,9 +161,9 @@ Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, Cpu::instructionModes
     }
 }
 
-Cpu::Word Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mode) {
+Cpu::Word Cpu::getValueFromABS(int &cycles, Memory &memory, const instructionModes mode) {
 
-    Word baseAddr = fetchWord(cycles,memory);
+    const Word baseAddr = fetchWord(cycles,memory);
     Word addr = 0;
     Word value = 0;
 
@@ -195,7 +195,7 @@ Cpu::Word Cpu::getValueFromABS(int &cycles, Memory &memory, instructionModes mod
     }
 }
 
-void Cpu::setReg(registers reg, Byte value) {
+void Cpu::setReg(const registers reg, const Byte value) {
     switch (reg) {
         case a:
             A = value;
@@ -212,15 +212,15 @@ void Cpu::setReg(registers reg, Byte value) {
     }
 }
 
-void Cpu::setZ(Byte value) {
+void Cpu::setZ(const Byte value) {
     Z = (value == 0);
 }
 
-void Cpu::setN(Byte value) {
+void Cpu::setN(const Byte value) {
     N = (value & 0x80) != 0;
 }
 
-Cpu::Byte Cpu::returnReg(registers reg) const {
+Cpu::Byte Cpu::returnReg(const registers reg) const {
     switch (reg) {
         case a:
             return A;
@@ -234,7 +234,7 @@ Cpu::Byte Cpu::returnReg(registers reg) const {
     }
 }
 
-Cpu::Byte Cpu::returnFlag(flags flag) const {
+Cpu::Byte Cpu::returnFlag(const flags flag) const {
     switch (flag) {
         case c:
             return C;
@@ -256,9 +256,10 @@ Cpu::Byte Cpu::returnFlag(flags flag) const {
     }
 }
 
-void Cpu::execute(int cycles, Memory & memory) {
+void Cpu::execute(int cycles, Memory &memory) {
     while (cycles > 0) {
-        switch (Byte instruction = fetchByte(cycles, memory)) {
+        const Byte instruction = fetchByte(cycles, memory);
+        switch (instruction) {
             case 0x69: //ADC Immediate
                 ADC(IM, memory, cycles); break;
             case 0x65: //ADC Zero Page
@@ -529,14 +530,55 @@ void Cpu::execute(int cycles, Memory & memory) {
                 CPY(ZP, memory, cycles); break;
             case 0xCC: //CPY Absolute
                 CPY(ABS, memory, cycles); break;
+            case 0x20: //JSR
+                JSR(memory, cycles); break;
+            case 0x60: //RTS
+                RTS(memory, cycles); break;
+            case 0x00: //BRK
+                BRK(memory, cycles); break;
+            case 0x40: //RTI
+                RTI(memory, cycles); break;
+            case 0x24: //BIT Zero Page
+                BIT(ZP, memory, cycles); break;
+            case 0x2C: //BIT Absolute
+                BIT(ABS, memory, cycles); break;
+            case 0x4A: //LSR Accumulator
+                LSR(ACC, memory, cycles); break;
+            case 0x46: //LSR Zero Page
+                LSR(ZP, memory, cycles); break;
+            case 0x56: //LSR Zero Page,X
+                LSR(ZPX, memory, cycles); break;
+            case 0x4E: //LSR Absolute
+                LSR(ABS, memory, cycles); break;
+            case 0x5E: //LSR Absolute,X
+                LSR(ABX, memory, cycles); break;
+            case 0x0A: //ASL Accumulator
+                ASL(ACC, memory, cycles); break;
+            case 0x06: //ASL Zero Page
+                ASL(ZP, memory, cycles); break;
+            case 0x16: //ASL Zero Page,X
+                ASL(ZPX, memory, cycles); break;
+            case 0x0E: //ASL Absolute
+                ASL(ABS, memory, cycles); break;
+            case 0x1E: //ASL Absolute,X
+                ASL(ABX, memory, cycles); break;
+            case 0xFF: // CUSTOM OPCODE - Halt CPU.
+                std::cout << "Halting CPU - encountered 0xFF\n";
+                cycles = 0;
+                break;
             default:
                 Emulator::log(totalCycles, Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
         }
+        // std::cout << "Cykl: " << totalCycles
+        // << "\nInstrukcja: " << (int)instruction
+        // << "\nRegister A = " << static_cast<int>(A)
+        // << "\nRegister X = " <<  static_cast<int>(X)
+        // << "\nRegister Y = " << static_cast<int>(Y) << "\n";
     }
 }
 
-Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, const std::string& instruction) {
+Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, const instructionModes mode, const std::string& instruction) {
 
     Word address = 0x00;
 
@@ -580,6 +622,19 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, co
             address = readWord(cycles, memory, address) + Y;
             return address;
         }
+        case IN: {
+            address = fetchWord(cycles, memory);
+            Word indirectAddr;
+            if ((address & 0x00FF) == 0x00FF) {
+                // 6502 Bug - Page boundary wrap around
+                const Byte low = memory[address];
+                const Byte high = memory[address & 0xFF00];
+                indirectAddr = (high << 8) | low;
+            } else {
+                indirectAddr = readWord(cycles, memory, address);
+            }
+            return indirectAddr;
+        }
         default: {
             Emulator::log(totalCycles, Emulator::ERROR, "Illegal instruction: " + static_cast<std::string>(instruction));
             return 0x00;
@@ -587,7 +642,7 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, co
     }
 }
 
-Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, const std::string &instruction) {
+Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, const instructionModes mode, const std::string &instruction) {
 
     Word value = 0x00;
 
@@ -637,11 +692,10 @@ Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes
     }
 }
 
-void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
-
-    Byte value = getValueFromAddress(cycles, memory, mode, "ADC");
-    Word sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + static_cast<uint16_t>(C);
-    Byte result = static_cast<Byte>(sum & 0xFF);
+void Cpu::ADC(const instructionModes mode, Memory &memory, int &cycles) {
+    const Byte value = getValueFromAddress(cycles, memory, mode, "ADC");
+    const Word sum = static_cast<uint16_t>(A) + static_cast<uint16_t>(value) + static_cast<uint16_t>(C);
+    const Byte result = static_cast<Byte>(sum & 0xFF);
 
     C = sum > 0xFF;  // Carry
     V = (~(A ^ value) & (A ^ result) & 0x80) != 0;  // Overflow
@@ -651,18 +705,17 @@ void Cpu::ADC(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-void Cpu::SBC(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::SBC(const instructionModes mode, Memory &memory, int &cycles) {
+    const Byte value = getValueFromAddress(cycles, memory, mode, "SBC");
+    const uint16_t result = static_cast<uint16_t>(A) - static_cast<uint16_t>(value) - (1 - C);
+    const Byte final = result & 0xFF;
 
-    Byte value = getValueFromAddress(cycles, memory, mode, "ADC");
-    Word sum = static_cast<uint16_t>(A) - (static_cast<uint16_t>(value) - ~static_cast<uint16_t>(C));
-    Byte result = static_cast<Byte>(sum & 0xFF);
+    C = result < 0x100;
+    V = ((A ^ value) & (A ^ final) & 0x80) != 0;
 
-    C = sum > 0xFF;  // Carry
-    V = (~(A ^ value) & (A ^ result) & 0x80) != 0;  // Overflow
-
-    setReg(a, result);
-    setZ(result);
-    setN(result);
+    setReg(a, final);
+    setZ(final);
+    setN(final);
 }
 
 void Cpu::INY(Memory &memory, int &cycles) {
@@ -670,7 +723,6 @@ void Cpu::INY(Memory &memory, int &cycles) {
     setN(Y);
     setZ(Y);
 }
-
 
 void Cpu::INX(Memory &memory, int &cycles) {
     X++; cycles++; totalCycles++;
@@ -684,24 +736,23 @@ void Cpu::DEY(Memory &memory, int &cycles) {
     setZ(Y);
 }
 
-
 void Cpu::DEX(Memory &memory, int &cycles) {
     X--; cycles++; totalCycles++;
     setN(X);
     setZ(X);
 }
 
-void Cpu::INC(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::INC(const instructionModes mode, Memory &memory, int &cycles) {
     Word addr = getAddress(cycles, memory, mode, "INC");
     memory[addr]++; cycles--; totalCycles++;
 }
 
-void Cpu::DEC(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::DEC(const instructionModes mode, Memory &memory, int &cycles) {
     Word addr = getAddress(cycles, memory, mode, "DEC");
     memory[addr]--; cycles--; totalCycles++;
 }
 
-void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::AND(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "AND");
     Byte result = value & A;
     setReg(a, result);
@@ -709,7 +760,7 @@ void Cpu::AND(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-void Cpu::EOR(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::EOR(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "EOR");
     Byte result = value ^ A;
     setReg(a, result);
@@ -717,7 +768,7 @@ void Cpu::EOR(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-void Cpu::ORA(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::ORA(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "ORA");
     Byte result = value | A;
     setReg(a, result);
@@ -725,7 +776,7 @@ void Cpu::ORA(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-void Cpu::CMP(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::CMP(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "CMP");
     Word sum = static_cast<uint16_t>(A) - static_cast<uint16_t>(value);
     Byte result = static_cast<Byte>(sum & 0xFF);
@@ -735,45 +786,44 @@ void Cpu::CMP(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-
-void Cpu::LDX(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::LDX(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "LDX");
     setReg(x, value);
     setZ(value);
     setN(value);
 }
 
-void Cpu::LDY(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::LDY(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "LDY");
     setReg(y, value);
     setZ(value);
     setN(value);
 }
 
-void Cpu::LDA(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::LDA(const instructionModes mode, Memory &memory, int &cycles) {
     Byte value = getValueFromAddress(cycles, memory, mode, "LDA");
     setReg(a, value);
     setZ(value);
     setN(value);
 }
 
-void Cpu::STX(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::STX(const instructionModes mode, Memory &memory, int &cycles) {
     Word address = getAddress(cycles, memory, mode, "STX");
     memory.writeByte(address, X);
 }
 
-void Cpu::STY(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::STY(const instructionModes mode, Memory &memory, int &cycles) {
     Word address = getAddress(cycles, memory, mode, "STY");
     memory.writeByte(address, Y);
 }
 
-void Cpu::STA(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::STA(const instructionModes mode, Memory &memory, int &cycles) {
     Word address = getAddress(cycles, memory, mode, "STA");
     memory.writeByte(address, A);
 }
 
-void Cpu::JMP(instructionModes mode, Memory &memory, int &cycles) {
-    Word value = getAddress(cycles, memory, mode, "JMP");
+void Cpu::JMP(const instructionModes mode, Memory &memory, int &cycles) {
+    const Word value = getAddress(cycles, memory, mode, "JMP");
     PC = value;
 }
 
@@ -832,56 +882,56 @@ void Cpu::TYA(Memory &memory, int &cycles) {
 void Cpu::BCC(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (C == 0) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BCS(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (C == 1) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BEQ(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (Z == 1) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BMI(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (N == 1) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BNE(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (Z == 0) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BPL(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (N == 0) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BVC(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (V == 0) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
 void Cpu::BVS(Memory &memory, int &cycles) {
     const Byte offset = fetchByte(cycles, memory);
     if (V == 1) {
-        branch(cycles, memory, offset);
+        branch(cycles, offset);
     }
 }
 
@@ -921,7 +971,7 @@ void Cpu::TXS(Memory &memory, int &cycles) {
     writeToStack(cycles, memory, X);
 }
 
-void Cpu::ROL(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::ROL(const instructionModes mode, Memory &memory, int &cycles) {
     if (mode == ACC) {
         const Byte oldCarry = C;
         const Byte oldValue = A;
@@ -943,7 +993,7 @@ void Cpu::ROL(instructionModes mode, Memory &memory, int &cycles) {
     }
 }
 
-void Cpu::ROR(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::ROR(const instructionModes mode, Memory &memory, int &cycles) {
     if (mode == ACC) {
         const Byte oldCarry = C;
         const Byte oldValue = A;
@@ -965,7 +1015,7 @@ void Cpu::ROR(instructionModes mode, Memory &memory, int &cycles) {
     }
 }
 
-void Cpu::CPX(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::CPX(const instructionModes mode, Memory &memory, int &cycles) {
     const Byte value = getValueFromAddress(cycles, memory, mode, "CPX");
     const Word sum = static_cast<uint16_t>(X) - static_cast<uint16_t>(value);
     const Byte result = static_cast<Byte>(sum & 0xFF);
@@ -975,7 +1025,7 @@ void Cpu::CPX(instructionModes mode, Memory &memory, int &cycles) {
     setN(result);
 }
 
-void Cpu::CPY(instructionModes mode, Memory &memory, int &cycles) {
+void Cpu::CPY(const instructionModes mode, Memory &memory, int &cycles) {
     const Byte value = getValueFromAddress(cycles, memory, mode, "CPY");
     const Word sum = static_cast<uint16_t>(Y) - static_cast<uint16_t>(value);
     const Byte result = static_cast<Byte>(sum & 0xFF);
@@ -996,6 +1046,65 @@ void Cpu::RTS(Memory &memory, int &cycles) {
     Word returnAddress = fetchWordFromStack(cycles, memory);
     PC = returnAddress + 1;
     totalCycles++; cycles--;
+}
+
+void Cpu::BRK(Memory &memory, int &cycles) {
+    writeWordToStack(cycles, memory, PC);
+    writeToStack(cycles, memory, encodeFlags());
+    B = 1;
+    PC = memory[0xFFFE] + (memory[0xFFFF] << 8);
+}
+
+void Cpu::RTI(Memory &memory, int &cycles) {
+    decodeFlags(fetchFromStack(cycles, memory));
+    PC = fetchWordFromStack(cycles, memory);
+}
+
+void Cpu::BIT(const instructionModes mode, Memory &memory, int &cycles) {
+    const Byte value = getValueFromAddress(cycles, memory, mode, "BIT");
+    const Byte result = A & value;
+
+    V = (value >> 6) & 1;
+    setZ(result);
+    setN(value);
+}
+
+void Cpu::LSR(const instructionModes mode, Memory &memory, int &cycles) {
+    if (mode == ACC) {
+        C = A & 0x01;
+        A >>= 1;
+        setZ(A);
+        setN(A);
+        cycles--; totalCycles++;
+    } else {
+        const Word address = getAddress(cycles, memory, mode, "LSR");
+        Byte value = memory[address];
+        C = value & 0x01;
+        value >>= 1;
+        memory[address] = value;
+        setZ(value);
+        setN(value);
+        cycles--; totalCycles++;
+    }
+}
+
+void Cpu::ASL(const instructionModes mode, Memory &memory, int &cycles) {
+    if (mode == ACC) {
+        C = (A >> 7) & 1;
+        A <<= 1;
+        setZ(A);
+        setN(A);
+        cycles--; totalCycles++;
+    } else {
+        const Word address = getAddress(cycles, memory, mode, "ASL");
+        Byte value = memory[address];
+        C = (value >> 7) & 1;
+        value <<= 1;
+        memory[address] = value;
+        setZ(value);
+        setN(value);
+        cycles--; totalCycles++;
+    }
 }
 
 Cpu::Cpu(Memory &mem) {
