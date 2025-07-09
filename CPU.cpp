@@ -54,7 +54,7 @@ void Cpu::attachEmulator(Emulator* emu) {
 
 void Cpu::reset(Memory & memory) {
     PC = memory[0xFFFC] + (memory[0xFFFD] << 8);
-    SP = 0x01FF;
+    SP = 0xFF;
     totalCycles = 0;
     A = X = Y = C = Z = I = D = B = V = 0;
 }
@@ -85,16 +85,30 @@ Cpu::Word Cpu::readWord(int &cycles, Memory &memory, Word addr) {
     return wholeAddress;
 }
 
-void Cpu::writeToStack(int &cycles, Memory &memory, Byte value){
-    memory[SP] = value;
+void Cpu::writeToStack(int &cycles, Memory &memory, Byte value) {
+    memory[0x0100 + SP] = value;
     SP--; totalCycles++; cycles--;
 }
 
-Cpu::Byte Cpu::fetchFromStack(int &cycles, Memory &memory){
-    Byte value = memory[SP];
-    memory[SP] = 0;
-    SP++; cycles--; totalCycles++;
+void Cpu::writeWordToStack(int &cycles, Memory &memory, Word value) {
+    Byte high = (value >> 8) & 0xFF;
+    Byte low  = value & 0xFF;
+
+    writeToStack(cycles, memory, high);
+    writeToStack(cycles, memory, low);
+}
+
+Cpu::Byte Cpu::fetchFromStack(int &cycles, Memory &memory) {
+    SP++; totalCycles++; cycles--;
+    Byte value = memory[0x0100 + SP];
     return value;
+}
+
+
+Cpu::Word Cpu::fetchWordFromStack(int &cycles, Memory &memory) {
+    Byte low = fetchFromStack(cycles, memory);
+    Byte high = fetchFromStack(cycles, memory);
+    return (high << 8) | low;
 }
 
 void Cpu::branch(int &cycles, Memory &memory, Byte offset) {
@@ -573,7 +587,6 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, instructionModes mode, co
     }
 }
 
-
 Cpu::Word Cpu::getValueFromAddress(int &cycles, Memory &memory, instructionModes mode, const std::string &instruction) {
 
     Word value = 0x00;
@@ -970,6 +983,19 @@ void Cpu::CPY(instructionModes mode, Memory &memory, int &cycles) {
     C = Y >= value;
     Z = Y == value;
     setN(result);
+}
+
+void Cpu::JSR(Memory &memory, int &cycles) {
+    Word returnAddress = PC - 1;
+    writeWordToStack(cycles, memory, returnAddress);
+    PC = fetchWord(cycles, memory);
+    totalCycles++; cycles--;
+}
+
+void Cpu::RTS(Memory &memory, int &cycles) {
+    Word returnAddress = fetchWordFromStack(cycles, memory);
+    PC = returnAddress + 1;
+    totalCycles++; cycles--;
 }
 
 Cpu::Cpu(Memory &mem) {

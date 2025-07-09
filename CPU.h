@@ -13,7 +13,7 @@ private:
     using Byte = unsigned char;
     using Word = unsigned short;
 
-    Word SP{}; //Stack pointer
+    Byte SP{}; //Stack pointer
     Byte A{}, X{}, Y{}; //Registers
     Byte C : 1{}; //Carry flag
     Byte Z : 1{}; //Zero flag
@@ -49,7 +49,9 @@ public:
     Word readWord(int &cycles, Memory &memory, Word addr);
 
     void writeToStack(int &cycles, Memory &memory, Byte value);
+    void writeWordToStack(int &cycles, Memory &memory, Word value);
     Byte fetchFromStack(int &cycles, Memory &memory);
+    Word fetchWordFromStack(int &cycles, Memory &memory);
 
     Byte getValueFromZP(int &cycles, Memory &memory, instructionModes mode);
     Word getValueFromABS(int &cycles, Memory &memory, instructionModes mode);
@@ -105,6 +107,8 @@ public:
     void TYA(Memory &memory, int &cycles);
 
     void JMP(instructionModes mode, Memory &memory, int &cycles);
+    void JSR(Memory &memory, int &cycles);
+    void RTS(Memory &memory, int &cycles);
 
     void SEI(Memory &memory, int &cycles);
     void SED(Memory &memory, int &cycles);
