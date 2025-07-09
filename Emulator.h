@@ -10,8 +10,8 @@
 #include <vector>
 #include "CPU.h"
 #include "Memory.h"
-class Cpu;
 
+class Cpu;
 class Emulator {
 private:
     using Byte = unsigned char;
