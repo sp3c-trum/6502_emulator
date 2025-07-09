@@ -483,6 +483,38 @@ void Cpu::execute(int cycles, Memory & memory) {
                 TSX(memory, cycles); break;
             case 0x9A: //TXS
                 TXS(memory, cycles); break;
+            case 0x2A: //ROL Accumulator
+                ROL(ACC, memory, cycles); break;
+            case 0x26: //ROL Zero Page
+                ROL(ZP, memory, cycles); break;
+            case 0x36: //ROL Zero Page,X
+                ROL(ZPX, memory, cycles); break;
+            case 0x2E: //ROL Absolute
+                ROL(ABS, memory, cycles); break;
+            case 0x3E: //ROL Absolute,X
+                ROL(ABX, memory, cycles); break;
+            case 0x6A: //ROR Accumulator
+                ROR(ACC, memory, cycles); break;
+            case 0x66: //ROR Zero Page
+                ROR(ZP, memory, cycles); break;
+            case 0x76: //ROR Zero Page,X
+                ROR(ZPX, memory, cycles); break;
+            case 0x6E: //ROR Absolute
+                ROR(ABS, memory, cycles); break;
+            case 0x7E: //ROR Absolute,X
+                ROR(ABX, memory, cycles); break;
+            case 0xE0: //CPX
+                CPX(IM, memory, cycles); break;
+            case 0xE4: //CPX Zero Page
+                CPX(ZP, memory, cycles); break;
+            case 0xEC: //CPX Absolute
+                CPX(ABS, memory, cycles); break;
+            case 0xC0: //CPY
+                CPY(IM, memory, cycles); break;
+            case 0xC4: //CPY Zero Page
+                CPY(ZP, memory, cycles); break;
+            case 0xCC: //CPY Absolute
+                CPY(ABS, memory, cycles); break;
             default:
                 Emulator::log(totalCycles, Emulator::ERROR, "Unknown instruction: ", instruction);
                 break;
@@ -874,6 +906,70 @@ void Cpu::TSX(Memory &memory, int &cycles) {
 
 void Cpu::TXS(Memory &memory, int &cycles) {
     writeToStack(cycles, memory, X);
+}
+
+void Cpu::ROL(instructionModes mode, Memory &memory, int &cycles) {
+    if (mode == ACC) {
+        const Byte oldCarry = C;
+        const Byte oldValue = A;
+        C = (oldValue >> 7) & 1;
+        A = (A << 1) | oldCarry;
+        setZ(A);
+        setN(A);
+        cycles--; totalCycles++;
+    } else {
+        Byte address = getAddress(cycles, memory, mode, "ROL");
+        Byte oldValue = memory[address];
+        Byte oldCarry = C;
+        C = (oldValue >> 7) & 1;
+        Byte result = (oldValue << 1) | oldCarry;
+        memory[address] = result;
+        setZ(result);
+        setN(result);
+        cycles--; totalCycles++;
+    }
+}
+
+void Cpu::ROR(instructionModes mode, Memory &memory, int &cycles) {
+    if (mode == ACC) {
+        const Byte oldCarry = C;
+        const Byte oldValue = A;
+        C = oldValue & 1;
+        A = (A >> 1) | (oldCarry << 7);
+        setZ(A);
+        setN(A);
+        cycles--; totalCycles++;
+    } else {
+        Word address = getAddress(cycles, memory, mode, "ROR");
+        Byte oldValue = memory[address];
+        Byte oldCarry = C;
+        C = oldValue & 1;
+        Byte result = (oldValue >> 1) | (oldCarry << 7);
+        memory[address] = result;
+        setZ(result);
+        setN(result);
+        cycles--; totalCycles++;
+    }
+}
+
+void Cpu::CPX(instructionModes mode, Memory &memory, int &cycles) {
+    const Byte value = getValueFromAddress(cycles, memory, mode, "CPX");
+    const Word sum = static_cast<uint16_t>(X) - static_cast<uint16_t>(value);
+    const Byte result = static_cast<Byte>(sum & 0xFF);
+
+    C = X >= value;
+    Z = X == value;
+    setN(result);
+}
+
+void Cpu::CPY(instructionModes mode, Memory &memory, int &cycles) {
+    const Byte value = getValueFromAddress(cycles, memory, mode, "CPY");
+    const Word sum = static_cast<uint16_t>(Y) - static_cast<uint16_t>(value);
+    const Byte result = static_cast<Byte>(sum & 0xFF);
+
+    C = Y >= value;
+    Z = Y == value;
+    setN(result);
 }
 
 Cpu::Cpu(Memory &mem) {

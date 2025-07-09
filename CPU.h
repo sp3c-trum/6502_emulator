@@ -72,6 +72,8 @@ public:
     void AND(instructionModes mode, Memory &memory, int &cycles);
     void EOR(instructionModes mode, Memory &memory, int &cycles);
     void ORA(instructionModes mode, Memory &memory, int &cycles);
+    void CPY(instructionModes mode, Memory &memory, int &cycles);
+    void CPX(instructionModes mode, Memory &memory, int &cycles);
 
     void BCC(Memory &memory, int &cycles);
     void BCS(Memory &memory, int &cycles);
@@ -119,6 +121,9 @@ public:
 
     void TSX(Memory &memory, int &cycles);
     void TXS(Memory &memory, int &cycles);
+
+    void ROR(instructionModes mode, Memory &memory, int &cycles);
+    void ROL(instructionModes mode, Memory &memory, int &cycles);
 
 };
 
