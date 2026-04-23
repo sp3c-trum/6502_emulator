@@ -8,7 +8,7 @@ using Word = unsigned short;
 
 void Memory::clear() {
     for (unsigned char & i : Data) {
-        i = 0x69;
+        i = 0x00;
     }
 }
 

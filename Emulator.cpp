@@ -3,11 +3,12 @@
 //
 
 #include "Emulator.h"
-#include <cstring>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <bits/ostream.tcc>
+#include <iomanip>
 #include <sstream>
+#include <utility>
 
 Emulator::Emulator()
     : cpu(mem) {
@@ -20,7 +21,10 @@ Emulator::Emulator()
 void Emulator::log(int totalCycles, logMode mode, const std::string &message, bool withValue, const std::string &value) {
     time_t timestamp;
     time(&timestamp);
-    std::string timeStr = std::strtok(ctime(&timestamp), "\n");
+    std::string timeStr = std::ctime(&timestamp);
+    if (!timeStr.empty() && timeStr.back() == '\n') {
+        timeStr.pop_back();
+    }
     std::cout << "\n[" << totalCycles << "]";
 
     switch (mode) {
@@ -69,7 +73,8 @@ void Emulator::log(int totalCycles, logMode mode, const std::string &message, co
     log(totalCycles, mode, message, true, value);
 }
 
-void Emulator::readROM(const std::string &name) {
+bool Emulator::readROM(const std::string &name) {
+    ROM.clear();
     char byte;
     std::ifstream file (name, std::ios::binary);
 
@@ -78,34 +83,68 @@ void Emulator::readROM(const std::string &name) {
     if (!file.is_open())
     {
         log(0, ERROR, "Failed to open file");
-        return;
+        return false;
     }
 
+    std::vector<Byte> raw;
     while (file.read(&byte, 1)) {
-        ROM.push_back(static_cast<unsigned char>(byte));
+        raw.push_back(static_cast<Byte>(byte));
+    }
+
+    if (raw.size() >= 16 && raw[0] == 'N' && raw[1] == 'E' && raw[2] == 'S' && raw[3] == 0x1A) {
+        size_t offset = 16;
+        if ((raw[6] & 0x04) != 0 && raw.size() >= offset + 512) {
+            offset += 512;
+        }
+
+        const size_t available = raw.size() - offset;
+        const size_t prgBanks = raw[4] == 0 ? 1 : raw[4];
+        const size_t prgSize = prgBanks * 16384;
+        const size_t copySize = std::min(prgSize, available);
+        ROM.assign(raw.begin() + static_cast<std::vector<Byte>::difference_type>(offset), raw.begin() + static_cast<std::vector<Byte>::difference_type>(offset + copySize));
+        log(0, INFO, "Detected iNES header; loaded PRG data bytes: ", static_cast<Word>(ROM.size()));
+    } else {
+        ROM = std::move(raw);
+    }
+
+    if (ROM.empty()) {
+        log(0, ERROR, "ROM is empty after loading.");
+        return false;
     }
 
     log(0, SUCCESS, "Successfully read ROM");
+    return true;
 }
 
 
-void Emulator::loadROMIntoMem(const Word addr) {
+bool Emulator::loadROMIntoMem(const Word addr) {
     log(0, INFO, "Loading ROM into memory at address: ", addr);
 
-    for (size_t i = 0; i < ROM.size(); ++i)
-        mem[addr + i] = ROM[i];
+    if (ROM.empty()) {
+        log(0, ERROR, "No ROM data loaded.");
+        return false;
+    }
 
-    // Ustaw reset vector na adres startowy ROM
+    if (static_cast<size_t>(addr) + ROM.size() > 0x10000) {
+        log(0, ERROR, "ROM does not fit into memory at the requested address.");
+        return false;
+    }
+
+    for (size_t i = 0; i < ROM.size(); ++i)
+        mem.writeByte(static_cast<Word>(addr + i), ROM[i]);
+
+    // Set the reset vector to the loaded code start.
     mem[0xFFFC] = static_cast<Byte>(addr & 0x00FF);         // Low byte
     mem[0xFFFD] = static_cast<Byte>((addr >> 8) & 0x00FF);  // High byte
 
     log(0, SUCCESS, "Successfully loaded ROM into memory");
+    return true;
 }
 
 
 
 void Emulator::loadByteIntoMem(Byte instruction, Word addr) {
-    mem.Data[addr] = instruction;
+    mem.writeByte(addr, instruction);
 }
 
 void Emulator::showMemory(const Word startingAddress, const Word endingAddress) const {

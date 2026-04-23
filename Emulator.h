@@ -6,7 +6,7 @@
 #define EMULATOR_H
 
 #include <cmath>
-#include <iosfwd>
+#include <string>
 #include <vector>
 #include "CPU.h"
 #include "Memory.h"
@@ -26,8 +26,8 @@ public:
 
     Emulator();
 
-    void readROM(const std::string &name);
-    void loadROMIntoMem(Word addr);
+    bool readROM(const std::string &name);
+    bool loadROMIntoMem(Word addr = 0x8000);
     void loadByteIntoMem(Byte instruction, Word addr = 0x0000);
 
     static void log(int totalCycles, logMode mode, const std::string &message);

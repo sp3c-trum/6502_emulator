@@ -80,9 +80,16 @@ Cpu::Byte Cpu::readByte(int &cycles, Memory &memory, const Word addr) {
 
 Cpu::Word Cpu::readWord(int &cycles, Memory &memory, const Word addr) {
     const Byte firstByte = readByte(cycles, memory, addr);
-    const Byte secondByte = readByte(cycles, memory, (addr + 1) & 0x00FF);
+    const Byte secondByte = readByte(cycles, memory, addr + 1);
     const Word wholeAddress = (secondByte << 8) | firstByte;
     return wholeAddress;
+}
+
+Cpu::Word Cpu::readWordZeroPage(int &cycles, Memory &memory, const Word addr) {
+    const Word zeroPageAddr = addr & 0x00FF;
+    const Byte firstByte = readByte(cycles, memory, zeroPageAddr);
+    const Byte secondByte = readByte(cycles, memory, (zeroPageAddr + 1) & 0x00FF);
+    return (secondByte << 8) | firstByte;
 }
 
 void Cpu::writeToStack(int &cycles, Memory &memory, Byte value) {
@@ -105,15 +112,15 @@ Cpu::Byte Cpu::fetchFromStack(int &cycles, Memory &memory) {
 
 
 Cpu::Word Cpu::fetchWordFromStack(int &cycles, Memory &memory) {
-    const Byte high = fetchFromStack(cycles, memory);
     const Byte low = fetchFromStack(cycles, memory);
+    const Byte high = fetchFromStack(cycles, memory);
     return (high << 8) | low;
 }
 
 void Cpu::branch(int &cycles, const Byte offset) {
     const Word oldPC = PC;
     const auto signedOffset = static_cast<int8_t>(offset);
-    PC += signedOffset - 1;
+    PC += signedOffset;
     cycles--; totalCycles++;
 
     if ((oldPC & 0xFF00) != (PC & 0xFF00)) {
@@ -133,23 +140,23 @@ Cpu::Byte Cpu::getValueFromZP(int &cycles, Memory &memory, const instructionMode
             return value;
         }
         case ZPX: {
-            addr += X; cycles--; totalCycles++;
+            addr = static_cast<Byte>(addr + X); cycles--; totalCycles++;
             value = readByte(cycles, memory, addr);
             return value;
         }
         case ZPY: {
-            addr += Y; cycles--; totalCycles++;
+            addr = static_cast<Byte>(addr + Y); cycles--; totalCycles++;
             value = readByte(cycles, memory, addr);
             return value;
         }
         case INDX: {
-            addr += X; cycles--; totalCycles++;
-            wordAddr = readWord(cycles, memory, addr);
+            addr = static_cast<Byte>(addr + X); cycles--; totalCycles++;
+            wordAddr = readWordZeroPage(cycles, memory, addr);
             value = readByte(cycles, memory, wordAddr);
             return value;
         }
         case INDY: {
-            wordAddr = readWord(cycles, memory, addr) + Y;
+            wordAddr = readWordZeroPage(cycles, memory, addr) + Y;
             cycles--; totalCycles++;
             value = readByte(cycles, memory, wordAddr);
             return value;
@@ -588,12 +595,12 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, const instructionModes mo
             return address;
         }
         case ZPX: {
-            address = fetchByte(cycles, memory) + X;
+            address = static_cast<Byte>(fetchByte(cycles, memory) + X);
             cycles--; totalCycles++;
             return address;
         }
         case ZPY: {
-            address = fetchByte(cycles, memory) + Y;
+            address = static_cast<Byte>(fetchByte(cycles, memory) + Y);
             cycles--; totalCycles++;
             return address;
         }
@@ -612,14 +619,13 @@ Cpu::Word Cpu::getAddress(int &cycles, Memory &memory, const instructionModes mo
             return address;
         }
         case INDX: {
-            address = fetchByte(cycles, memory) + X;
+            address = static_cast<Byte>(fetchByte(cycles, memory) + X);
             cycles--; totalCycles++;
-            address = readWord(cycles, memory, address);
+            address = readWordZeroPage(cycles, memory, address);
             return address;
         }
         case INDY: {
-            address = fetchByte(cycles, memory);
-            address = readWord(cycles, memory, address) + Y;
+            address = readWordZeroPage(cycles, memory, fetchByte(cycles, memory)) + Y;
             return address;
         }
         case IN: {
@@ -725,7 +731,7 @@ void Cpu::INY(Memory &memory, int &cycles) {
 }
 
 void Cpu::INX(Memory &memory, int &cycles) {
-    X++; cycles++; totalCycles++;
+    X++; cycles--; totalCycles++;
     setN(X);
     setZ(X);
 }
@@ -737,19 +743,29 @@ void Cpu::DEY(Memory &memory, int &cycles) {
 }
 
 void Cpu::DEX(Memory &memory, int &cycles) {
-    X--; cycles++; totalCycles++;
+    X--; cycles--; totalCycles++;
     setN(X);
     setZ(X);
 }
 
 void Cpu::INC(const instructionModes mode, Memory &memory, int &cycles) {
     Word addr = getAddress(cycles, memory, mode, "INC");
-    memory[addr]++; cycles--; totalCycles++;
+    Byte value = memory[addr];
+    value++;
+    memory.writeByte(addr, value);
+    setZ(value);
+    setN(value);
+    cycles--; totalCycles++;
 }
 
 void Cpu::DEC(const instructionModes mode, Memory &memory, int &cycles) {
     Word addr = getAddress(cycles, memory, mode, "DEC");
-    memory[addr]--; cycles--; totalCycles++;
+    Byte value = memory[addr];
+    value--;
+    memory.writeByte(addr, value);
+    setZ(value);
+    setN(value);
+    cycles--; totalCycles++;
 }
 
 void Cpu::AND(const instructionModes mode, Memory &memory, int &cycles) {
@@ -949,7 +965,7 @@ void Cpu::PLA(Memory &memory, int &cycles) {
 }
 
 void Cpu::PHP(Memory &memory, int &cycles) {
-    const Byte value = encodeFlags();
+    const Byte value = static_cast<Byte>(encodeFlags() | 0x10);
     writeToStack(cycles, memory, value);
     totalCycles++; cycles--;
 }
@@ -961,14 +977,15 @@ void Cpu::PLP(Memory &memory, int &cycles) {
 }
 
 void Cpu::TSX(Memory &memory, int &cycles) {
-    const Byte value = fetchFromStack(cycles, memory);
-    setReg(x, value);
+    setReg(x, SP);
     setZ(x);
     setN(x);
+    cycles--; totalCycles++;
 }
 
 void Cpu::TXS(Memory &memory, int &cycles) {
-    writeToStack(cycles, memory, X);
+    SP = X;
+    cycles--; totalCycles++;
 }
 
 void Cpu::ROL(const instructionModes mode, Memory &memory, int &cycles) {
@@ -1049,10 +1066,12 @@ void Cpu::RTS(Memory &memory, int &cycles) {
 }
 
 void Cpu::BRK(Memory &memory, int &cycles) {
-    writeWordToStack(cycles, memory, PC);
-    writeToStack(cycles, memory, encodeFlags());
+    const Word returnAddress = PC + 1;
+    writeWordToStack(cycles, memory, returnAddress);
+    writeToStack(cycles, memory, static_cast<Byte>(encodeFlags() | 0x10));
     B = 1;
-    PC = memory[0xFFFE] + (memory[0xFFFF] << 8);
+    I = 1;
+    PC = readWord(cycles, memory, 0xFFFE);
 }
 
 void Cpu::RTI(Memory &memory, int &cycles) {

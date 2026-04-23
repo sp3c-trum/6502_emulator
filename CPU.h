@@ -5,6 +5,7 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include <string>
 #include "Memory.h"
 class Emulator;
 
@@ -46,6 +47,7 @@ public:
     Byte readByte(int &cycles, Memory &memory, Word addr);
     Word fetchWord(int &cycles, Memory &memory);
     Word readWord(int &cycles, Memory &memory, Word addr);
+    Word readWordZeroPage(int &cycles, Memory &memory, Word addr);
 
     void writeToStack(int &cycles, Memory &memory, Byte value);
     void writeWordToStack(int &cycles, Memory &memory, Word value);

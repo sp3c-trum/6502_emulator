@@ -1,79 +1,149 @@
+#include <functional>
+#include <cstddef>
+#include <iomanip>
 #include <iostream>
+#include <string>
+#include <vector>
+
 #include "CPU.h"
 #include "Emulator.h"
-#include "Memory.h"
+#include "Gui.h"
 
-int main() {
+namespace {
+using Byte = unsigned char;
+using Word = unsigned short;
+constexpr Word kProgramStart = static_cast<Word>(0x8000);
+
+bool runTestCase(const std::string &name, const std::vector<Byte> &program, int cycles, const std::function<bool(Emulator &)> &check) {
+    Emulator emulator;
+    emulator.mem.clear();
+    for (std::size_t i = 0; i < program.size(); ++i) {
+        emulator.mem.writeByte(static_cast<Word>(kProgramStart + i), program[i]);
+    }
+
+    emulator.mem.writeByte(0xFFFC, static_cast<Byte>(kProgramStart & 0x00FF));
+    emulator.mem.writeByte(0xFFFD, static_cast<Byte>((kProgramStart >> 8) & 0x00FF));
+    emulator.cpu.reset(emulator.mem);
+    emulator.cpu.execute(cycles, emulator.mem);
+
+    const bool passed = check(emulator);
+    std::cout << "\n[TEST] " << name << " -> " << (passed ? "PASS" : "FAIL") << '\n';
+    if (!passed) {
+        emulator.showRegisters();
+        emulator.showFlag(Cpu::z);
+        emulator.showFlag(Cpu::c);
+        emulator.showFlag(Cpu::n);
+        emulator.showMemory(0x0200, 0x0204);
+    }
+    return passed;
+}
+
+bool runSelfTests() {
+    int failures = 0;
+
+    failures += !runTestCase(
+        "branch + ADC + store",
+        {
+            0xA9, 0x00,       // LDA #$00
+            0xF0, 0x02,       // BEQ +2
+            0xA9, 0xFF,       // skipped
+            0xA9, 0x42,       // LDA #$42
+            0x18,             // CLC
+            0x69, 0x20,       // ADC #$20
+            0x8D, 0x00, 0x02, // STA $0200
+            0xFF              // HALT
+        },
+        40,
+        [](Emulator &emulator) {
+            return emulator.cpu.returnReg(Cpu::a) == 0x62 &&
+                   emulator.mem[0x0200] == 0x62 &&
+                   emulator.cpu.returnFlag(Cpu::z) == 0 &&
+                   emulator.cpu.returnFlag(Cpu::c) == 0;
+        }
+    );
+
+    failures += !runTestCase(
+        "TSX / TXS transfer",
+        {
+            0xBA,
+            0x8E, 0x01, 0x02,
+            0xA2, 0x20,
+            0x9A,
+            0xBA,
+            0x8E, 0x02, 0x02,
+            0xFF
+        },
+        30,
+        [](Emulator &emulator) {
+            return emulator.mem[0x0201] == 0xFF &&
+                   emulator.mem[0x0202] == 0x20 &&
+                   emulator.cpu.returnReg(Cpu::x) == 0x20;
+        }
+    );
+
+    failures += !runTestCase(
+        "INC / DEC flags",
+        {
+            0xA9, 0x00,
+            0x8D, 0x03, 0x02,
+            0xEE, 0x03, 0x02,
+            0xCE, 0x03, 0x02,
+            0xFF
+        },
+        30,
+        [](Emulator &emulator) {
+            return emulator.mem[0x0203] == 0x00 &&
+                   emulator.cpu.returnFlag(Cpu::z) == 1 &&
+                   emulator.cpu.returnFlag(Cpu::n) == 0;
+        }
+    );
+
+    std::cout << "\nSelf-test summary: " << (failures == 0 ? "ALL PASS" : std::to_string(failures) + " FAIL") << '\n';
+    return failures == 0;
+}
+} // namespace
+
+int main(int argc, char *argv[]) {
+
+    const std::string romPath = argv[1];
+    Word loadAddress = 0x8000;
+    if (argc >= 3) {
+        loadAddress = static_cast<Word>(std::stoul(argv[2], nullptr, 0));
+    }
+
     Emulator emulator;
 
-    // std::vector<uint8_t> testProgram = {
-    //     0xA9, 0x10,       // LDA #$10
-    //     0xAA,             // TAX
-    //     0xE8,             // INX
-    //     0xCA,             // DEX
-    //
-    //     0xA0, 0x05,       // LDY #$05
-    //     0xC8,             // INY
-    //     0x88,             // DEY
-    //
-    //     0x8D, 0x00, 0x02, // STA $0200
-    //
-    //     0xA9, 0x22,       // LDA #$22
-    //     0x69, 0x20,       // ADC #$20
-    //
-    //     0x29, 0xF0,       // AND #$F0
-    //     0x09, 0x02,       // ORA #$02
-    //     0x49, 0x01,       // EOR #$01
-    //
-    //     0x4A,             // LSR
-    //     0x0A,             // ASL
-    //     0x2A,             // ROL
-    //     0x6A,             // ROR
-    //
-    //     0xC9, 0x42,       // CMP #$42
-    //     0xE0, 0x10,       // CPX #$10
-    //     0xC0, 0x05,       // CPY #$05
-    //
-    //     0xF0, 0x03,       // BEQ +3 (skocz jeśli Z=1)
-    //     0xA9, 0x00,       // LDA #$00 (pomijane)
-    //     0x4C, 0x29, 0x00, // JMP $0022 (jump to halt)
-    //
-    //     // label_eq:
-    //     0xA9, 0x42,       // LDA #$42
-    //
-    //     // halt:
-    //     0xFF              // HALT opcode
-    // };
-    //
-    // for (size_t i = 0; i < testProgram.size(); ++i)
-    //     emulator.mem[0x0000 + i] = testProgram[i];
-    //
-    // // Reset vector (adresy 0xFFFC-0xFFFD = 0x0000)
-    // emulator.loadByteIntoMem(0x00, 0xFFFC);
-    // emulator.loadByteIntoMem(0x00, 0xFFFD);
-    // emulator.cpu.reset(emulator.mem);
+    if (argc >= 2) {
+        const std::string firstArg = argv[1];
+        if (firstArg == "--gui" || firstArg == "--window") {
+            return runSfmlWindowDemo(emulator);
+        }
+    }
 
-    emulator.readROM("program.bin");
-    emulator.loadROMIntoMem(0x0000);
+    if (argc <= 1 || std::string(argv[1]) == "--self-test") {
+        return runSelfTests() ? 0 : 1;
+    }
+
+    if (!emulator.readROM(romPath)) {
+        return 1;
+    }
+
+    if (!emulator.loadROMIntoMem(loadAddress)) {
+        return 1;
+    }
+
     emulator.cpu.reset(emulator.mem);
 
-    // Informacje początkowe
     std::cout << "Reset vector PC: 0x" << std::hex << emulator.cpu.PC << std::endl;
     std::cout << "First opcode: 0x" << std::hex << static_cast<int>(emulator.mem[emulator.cpu.PC]) << std::endl;
 
-    // Uruchom program
-    emulator.cpu.execute(100, emulator.mem);
+    emulator.cpu.execute(100000, emulator.mem);
 
-    // Pokaż rejestry i flagi
     emulator.showRegisters();
-    std::cout << "\nZawartosc $0201: 0x" << std::hex << static_cast<int>(emulator.mem[0x0201]) << std::endl;
-
-
-    emulator.showFlag(Cpu::z);  // Zero
-    emulator.showFlag(Cpu::c);  // Carry
-    emulator.showFlag(Cpu::n);  // Negative
-
-    emulator.showMemory(0x0000, 0x000D);
+    emulator.showFlag(Cpu::z);
+    emulator.showFlag(Cpu::c);
+    emulator.showFlag(Cpu::n);
+    emulator.showMemory(0x0200, 0x0204);
 
     return 0;
 }
